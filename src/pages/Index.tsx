@@ -2,6 +2,7 @@ import HeroSection from "@/components/HeroSection";
 import StatsBar from "@/components/StatsBar";
 import SecurityLayers from "@/components/SecurityLayers";
 import ThreatAlerts from "@/components/ThreatAlerts";
+import EventTimeline from "@/components/EventTimeline";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
 import ProjectInfo from "@/components/ProjectInfo";
 import { Shield } from "lucide-react";
@@ -13,6 +14,7 @@ const Index = () => {
       <StatsBar />
       <SecurityLayers />
       <ThreatAlerts />
+      <EventTimeline />
       <ArchitectureDiagram />
       <ProjectInfo />
 
