@@ -1,3 +1,4 @@
+import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import StatsBar from "@/components/StatsBar";
 import SecurityLayers from "@/components/SecurityLayers";
@@ -10,7 +11,8 @@ import { Shield } from "lucide-react";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background scroll-smooth">
+      <Navbar />
       <HeroSection />
       <StatsBar />
       <SecurityLayers />

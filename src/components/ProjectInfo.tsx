@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { BookOpen, User, MapPin, Calendar } from "lucide-react";
 
 const ProjectInfo = () => (
-  <section className="py-20 bg-card/30 border-t border-border">
+  <section id="about" className="py-20 bg-card/30 border-t border-border">
     <div className="container mx-auto px-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
