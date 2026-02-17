@@ -4,6 +4,7 @@ import SecurityLayers from "@/components/SecurityLayers";
 import ThreatAlerts from "@/components/ThreatAlerts";
 import EventTimeline from "@/components/EventTimeline";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
+import MethodologySection from "@/components/MethodologySection";
 import ProjectInfo from "@/components/ProjectInfo";
 import { Shield } from "lucide-react";
 
@@ -16,6 +17,7 @@ const Index = () => {
       <ThreatAlerts />
       <EventTimeline />
       <ArchitectureDiagram />
+      <MethodologySection />
       <ProjectInfo />
 
       {/* Footer */}
