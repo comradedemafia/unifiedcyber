@@ -49,7 +49,7 @@ const dsrSteps = [
 const totalWeeks = 16;
 
 const MethodologySection = () => (
-  <section className="py-20 bg-background">
+  <section id="methodology" className="py-20 bg-background">
     <div className="container mx-auto px-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
