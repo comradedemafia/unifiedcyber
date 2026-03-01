@@ -2,12 +2,12 @@ import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import StatsBar from "@/components/StatsBar";
 import SecurityLayers from "@/components/SecurityLayers";
-import ThreatAlerts from "@/components/ThreatAlerts";
-import EventTimeline from "@/components/EventTimeline";
+import LiveThreatFeed from "@/components/LiveThreatFeed";
+import LiveMonitoring from "@/components/LiveMonitoring";
+import LiveLogStream from "@/components/LiveLogStream";
+import SecurityTerminal from "@/components/SecurityTerminal";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
-import MethodologySection from "@/components/MethodologySection";
-import ProjectInfo from "@/components/ProjectInfo";
-import { Shield, Terminal, ExternalLink } from "lucide-react";
+import { Shield } from "lucide-react";
 
 const Index = () => {
   return (
@@ -16,11 +16,11 @@ const Index = () => {
       <HeroSection />
       <StatsBar />
       <SecurityLayers />
-      <ThreatAlerts />
-      <EventTimeline />
+      <LiveThreatFeed />
+      <LiveMonitoring />
+      <LiveLogStream />
+      <SecurityTerminal />
       <ArchitectureDiagram />
-      <MethodologySection />
-      <ProjectInfo />
 
       {/* Footer */}
       <footer className="relative py-12 border-t border-border/30">
@@ -33,15 +33,15 @@ const Index = () => {
               </div>
               <div>
                 <span className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/60 uppercase block">
-                  Unified Cybersecurity Framework
+                  Unified Cyber Security Framework
                 </span>
                 <span className="text-[10px] text-muted-foreground/40">
-                  Final Year Project · Computer Science
+                  RUCU · Faculty of ICT · Computer Science
                 </span>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground/40 font-mono">
-              © 2026 Ruaha Catholic University — Faculty of ICT
+              © 2026 Ruaha Catholic University
             </p>
           </div>
         </div>
