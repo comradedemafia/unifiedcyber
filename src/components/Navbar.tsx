@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Menu, X } from "lucide-react";
+import { Shield, Menu, X, Terminal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navLinks = [
@@ -23,71 +23,76 @@ const Navbar = () => {
 
   const handleClick = (href: string) => {
     setMobileOpen(false);
-    const el = document.querySelector(href);
-    el?.scrollIntoView({ behavior: "smooth" });
+    document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-background/80 backdrop-blur-lg border-b border-border shadow-lg"
+          ? "bg-background/90 backdrop-blur-xl border-b border-primary/10 shadow-[0_4px_30px_hsl(170_100%_45%/0.05)]"
           : "bg-transparent"
       }`}
     >
-      <div className="container mx-auto px-6 flex items-center justify-between h-14">
-        {/* Logo */}
+      <div className="container mx-auto px-6 flex items-center justify-between h-16">
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
+          className="flex items-center gap-2.5 group"
         >
-          <Shield className="w-5 h-5 text-primary" />
-          <span className="font-mono text-xs tracking-widest uppercase hidden sm:inline">
-            UCSF
-          </span>
+          <div className="relative">
+            <Shield className="w-6 h-6 text-primary transition-all group-hover:drop-shadow-[0_0_8px_hsl(170_100%_45%/0.5)]" />
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5">
+            <Terminal className="w-3 h-3 text-primary/50" />
+            <span className="font-mono text-[10px] tracking-[0.4em] uppercase text-muted-foreground group-hover:text-primary transition-colors">
+              UCSF
+            </span>
+          </div>
         </button>
 
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-0.5 bg-muted/30 rounded-full px-1.5 py-1 border border-border/50">
           {navLinks.map((link) => (
             <button
               key={link.href}
               onClick={() => handleClick(link.href)}
-              className="px-3 py-1.5 text-xs font-mono text-muted-foreground hover:text-primary transition-colors rounded-md hover:bg-primary/5"
+              className="px-3.5 py-1.5 text-[11px] font-mono text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all rounded-full"
             >
               {link.label}
             </button>
           ))}
         </div>
 
-        {/* Mobile toggle */}
         <button
           onClick={() => setMobileOpen((v) => !v)}
-          className="md:hidden text-muted-foreground hover:text-primary transition-colors"
+          className="md:hidden p-2 text-muted-foreground hover:text-primary transition-colors"
           aria-label="Toggle menu"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
-      {/* Mobile menu */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background/95 backdrop-blur-lg border-b border-border overflow-hidden"
+            className="md:hidden bg-background/98 backdrop-blur-xl border-b border-border overflow-hidden"
           >
-            <div className="container mx-auto px-6 py-3 flex flex-col gap-1">
-              {navLinks.map((link) => (
-                <button
+            <div className="container mx-auto px-6 py-4 flex flex-col gap-1">
+              {navLinks.map((link, i) => (
+                <motion.button
                   key={link.href}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
                   onClick={() => handleClick(link.href)}
-                  className="text-left px-3 py-2 text-sm font-mono text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
+                  className="text-left px-4 py-2.5 text-sm font-mono text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
                 >
+                  <span className="text-primary/40 mr-2">0{i + 1}</span>
                   {link.label}
-                </button>
+                </motion.button>
               ))}
             </div>
           </motion.div>
