@@ -7,7 +7,7 @@ import EventTimeline from "@/components/EventTimeline";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
 import MethodologySection from "@/components/MethodologySection";
 import ProjectInfo from "@/components/ProjectInfo";
-import { Shield } from "lucide-react";
+import { Shield, Terminal, ExternalLink } from "lucide-react";
 
 const Index = () => {
   return (
@@ -23,15 +23,27 @@ const Index = () => {
       <ProjectInfo />
 
       {/* Footer */}
-      <footer className="py-8 border-t border-border">
-        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Shield className="w-4 h-4 text-primary" />
-            <span className="font-mono text-xs">UNIFIED CYBERSEC FRAMEWORK</span>
+      <footer className="relative py-12 border-t border-border/30">
+        <div className="absolute inset-0 bg-dots opacity-5" />
+        <div className="container mx-auto px-6 relative">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/8 border border-primary/10">
+                <Shield className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <span className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground/60 uppercase block">
+                  Unified Cybersecurity Framework
+                </span>
+                <span className="text-[10px] text-muted-foreground/40">
+                  Final Year Project · Computer Science
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground/40 font-mono">
+              © 2026 Ruaha Catholic University — Faculty of ICT
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            © 2026 Ruaha Catholic University — Faculty of ICT
-          </p>
         </div>
       </footer>
     </div>

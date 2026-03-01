@@ -1,13 +1,6 @@
 import { motion } from "framer-motion";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
 const timelineData = [
@@ -25,21 +18,22 @@ const timelineData = [
   { time: "14:30", system: 120, web: 92, network: 145 },
 ];
 
+const layerColors = {
+  system: "hsl(170,100%,45%)",
+  web: "hsl(260,80%,60%)",
+  network: "hsl(42,100%,55%)",
+};
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md border border-border bg-card p-3 shadow-lg backdrop-blur-sm">
-      <p className="font-mono text-xs text-muted-foreground mb-2">{label}</p>
+    <div className="rounded-lg border border-border bg-card/95 p-3.5 shadow-xl backdrop-blur-md">
+      <p className="font-mono text-[10px] text-muted-foreground mb-2 tracking-wider">{label}</p>
       {payload.map((entry: any) => (
-        <div key={entry.name} className="flex items-center gap-2 text-xs">
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-muted-foreground capitalize">{entry.name}:</span>
-          <span className="font-mono font-semibold text-foreground">
-            {entry.value}
-          </span>
+        <div key={entry.name} className="flex items-center gap-2.5 text-xs py-0.5">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-muted-foreground capitalize w-16">{entry.name}</span>
+          <span className="font-mono font-bold text-foreground">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -47,21 +41,25 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const EventTimeline = () => (
-  <section id="timeline" className="py-20 bg-card/30">
-    <div className="container mx-auto px-6">
+  <section id="timeline" className="py-24 relative">
+    <div className="absolute inset-0 bg-gradient-to-b from-card/20 via-transparent to-card/20" />
+    <div className="container mx-auto px-6 relative">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        className="text-center mb-14"
+        className="mb-16"
       >
-        <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-          Event Correlation{" "}
-          <span className="text-primary text-glow">Timeline</span>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+          <span className="font-mono text-[10px] tracking-[0.3em] text-primary/60 uppercase">Analytics</span>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
+        </div>
+        <h2 className="text-4xl md:text-5xl font-display font-bold text-foreground text-center mb-4 tracking-tight">
+          Event Correlation <span className="text-primary text-glow">Timeline</span>
         </h2>
-        <p className="text-muted-foreground max-w-xl mx-auto">
-          Real-time event volume across all three security layers, correlated
-          for unified threat analysis.
+        <p className="text-muted-foreground max-w-xl mx-auto text-center">
+          Real-time event volume across all three security layers, correlated for unified threat analysis.
         </p>
       </motion.div>
 
@@ -70,92 +68,42 @@ const EventTimeline = () => (
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ delay: 0.15 }}
-        className="max-w-5xl mx-auto rounded-lg border border-border bg-card p-4 md:p-8"
+        className="max-w-5xl mx-auto rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-5 md:p-8"
       >
-        {/* Legend pills */}
-        <div className="flex flex-wrap gap-4 mb-6 justify-center">
+        <div className="flex flex-wrap gap-5 mb-8 justify-center">
           {[
-            { label: "System", color: "hsl(185,100%,50%)" },
-            { label: "Web", color: "hsl(38,92%,50%)" },
-            { label: "Network", color: "hsl(0,80%,55%)" },
+            { label: "System", color: layerColors.system },
+            { label: "Web", color: layerColors.web },
+            { label: "Network", color: layerColors.network },
           ].map((l) => (
-            <span
-              key={l.label}
-              className="flex items-center gap-2 text-xs font-mono text-muted-foreground"
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: l.color }}
-              />
+            <span key={l.label} className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
+              <span className="w-3 h-1 rounded-full" style={{ backgroundColor: l.color }} />
               {l.label} Layer
             </span>
           ))}
         </div>
 
-        <ResponsiveContainer width="100%" height={340}>
-          <AreaChart
-            data={timelineData}
-            margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
-          >
+        <ResponsiveContainer width="100%" height={360}>
+          <AreaChart data={timelineData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
             <defs>
-              <linearGradient id="gradSystem" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(185,100%,50%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(185,100%,50%)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradWeb" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(38,92%,50%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(38,92%,50%)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradNetwork" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(0,80%,55%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(0,80%,55%)" stopOpacity={0} />
-              </linearGradient>
+              {Object.entries(layerColors).map(([key, color]) => (
+                <linearGradient key={key} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={color} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              ))}
             </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="hsl(222,30%,18%)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="time"
-              tick={{ fontSize: 11, fill: "hsl(215,20%,55%)" }}
-              tickLine={false}
-              axisLine={{ stroke: "hsl(222,30%,18%)" }}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "hsl(215,20%,55%)" }}
-              tickLine={false}
-              axisLine={false}
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(230,18%,15%)" vertical={false} />
+            <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(220,15%,50%)" }} tickLine={false} axisLine={{ stroke: "hsl(230,18%,15%)" }} />
+            <YAxis tick={{ fontSize: 10, fill: "hsl(220,15%,50%)" }} tickLine={false} axisLine={false} />
             <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="system"
-              stroke="hsl(185,100%,50%)"
-              strokeWidth={2}
-              fill="url(#gradSystem)"
-              animationDuration={1200}
-            />
-            <Area
-              type="monotone"
-              dataKey="web"
-              stroke="hsl(38,92%,50%)"
-              strokeWidth={2}
-              fill="url(#gradWeb)"
-              animationDuration={1400}
-            />
-            <Area
-              type="monotone"
-              dataKey="network"
-              stroke="hsl(0,80%,55%)"
-              strokeWidth={2}
-              fill="url(#gradNetwork)"
-              animationDuration={1600}
-            />
+            {Object.entries(layerColors).map(([key, color]) => (
+              <Area key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} fill={`url(#grad-${key})`} animationDuration={1200} />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
 
-        <p className="text-center text-xs text-muted-foreground mt-4 font-mono">
+        <p className="text-center text-[10px] text-muted-foreground mt-6 font-mono tracking-wider">
           Events per interval · Last 24 hours · Peak at 14:30 — DDoS + port scan correlation
         </p>
       </motion.div>
