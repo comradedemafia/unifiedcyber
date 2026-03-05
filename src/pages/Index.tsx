@@ -19,6 +19,7 @@ const Index = () => {
       <StatsBar />
       <SecurityLayers />
       <LiveThreatFeed />
+      <FirewallMonitor />
       <LiveMonitoring />
       <LiveLogStream />
       <SecurityTerminal />
