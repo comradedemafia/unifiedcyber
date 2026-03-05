@@ -8,6 +8,7 @@ const navLinks = [
   { label: "Monitoring", href: "#monitoring" },
   { label: "Logs", href: "#logs" },
   { label: "Terminal", href: "#terminal" },
+  { label: "Incident Response", href: "#incident-response" },
   { label: "Architecture", href: "#architecture" },
 ];
 

@@ -6,6 +6,7 @@ import LiveThreatFeed from "@/components/LiveThreatFeed";
 import LiveMonitoring from "@/components/LiveMonitoring";
 import LiveLogStream from "@/components/LiveLogStream";
 import SecurityTerminal from "@/components/SecurityTerminal";
+import IncidentResponse from "@/components/IncidentResponse";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
 import { Shield } from "lucide-react";
 
@@ -20,6 +21,7 @@ const Index = () => {
       <LiveMonitoring />
       <LiveLogStream />
       <SecurityTerminal />
+      <IncidentResponse />
       <ArchitectureDiagram />
 
       {/* Footer */}
