@@ -336,6 +336,7 @@ const IncidentResponse = () => {
     { key: "firewall", label: "Firewall", icon: Flame, color: "text-warning" },
     { key: "ids", label: "IDS", icon: Radar, color: "text-accent" },
     { key: "ips", label: "IPS", icon: ShieldAlert, color: "text-destructive" },
+    { key: "encryption", label: "Encryption", icon: KeyRound, color: "text-emerald-400" },
   ];
 
   return (
