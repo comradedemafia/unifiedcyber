@@ -10,7 +10,7 @@ import {
 import EncryptionPanel from "./EncryptionPanel";
 
 type Phase = "idle" | "detection" | "containment" | "recovery" | "complete";
-type TabView = "response" | "firewall" | "ids" | "ips";
+type TabView = "response" | "firewall" | "ids" | "ips" | "encryption";
 
 interface Incident {
   id: string;
