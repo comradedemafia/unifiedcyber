@@ -3,7 +3,7 @@ import HeroSection from "@/components/HeroSection";
 import StatsBar from "@/components/StatsBar";
 import SecurityLayers from "@/components/SecurityLayers";
 import LiveThreatFeed from "@/components/LiveThreatFeed";
-import FirewallMonitor from "@/components/FirewallMonitor";
+
 import LiveMonitoring from "@/components/LiveMonitoring";
 import LiveLogStream from "@/components/LiveLogStream";
 import SecurityTerminal from "@/components/SecurityTerminal";
