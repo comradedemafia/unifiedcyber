@@ -832,6 +832,9 @@ const IncidentResponse = () => {
             </div>
           </motion.div>
         )}
+
+        {/* ═══════════ ENCRYPTION TAB ═══════════ */}
+        {activeTab === "encryption" && <EncryptionPanel />}
       </div>
     </section>
   );
