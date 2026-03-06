@@ -5,8 +5,9 @@ import {
   Activity, Zap, Server, Globe, Lock, Eye,
   ChevronRight, Play, Clock, ArrowDownToLine, ArrowUpFromLine,
   ShieldCheck, ShieldOff, Flame, Filter, Pause, Settings2,
-  Wifi, Radar, ShieldAlert, Crosshair, ScanSearch, Bug
+  Wifi, Radar, ShieldAlert, Crosshair, ScanSearch, Bug, KeyRound
 } from "lucide-react";
+import EncryptionPanel from "./EncryptionPanel";
 
 type Phase = "idle" | "detection" | "containment" | "recovery" | "complete";
 type TabView = "response" | "firewall" | "ids" | "ips";
