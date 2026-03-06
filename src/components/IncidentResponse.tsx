@@ -5,11 +5,12 @@ import {
   Activity, Zap, Server, Globe, Lock, Eye,
   ChevronRight, Play, Clock, ArrowDownToLine, ArrowUpFromLine,
   ShieldCheck, ShieldOff, Flame, Filter, Pause, Settings2,
-  Wifi, Radar, ShieldAlert, Crosshair, ScanSearch, Bug
+  Wifi, Radar, ShieldAlert, Crosshair, ScanSearch, Bug, KeyRound
 } from "lucide-react";
+import EncryptionPanel from "./EncryptionPanel";
 
 type Phase = "idle" | "detection" | "containment" | "recovery" | "complete";
-type TabView = "response" | "firewall" | "ids" | "ips";
+type TabView = "response" | "firewall" | "ids" | "ips" | "encryption";
 
 interface Incident {
   id: string;
@@ -335,6 +336,7 @@ const IncidentResponse = () => {
     { key: "firewall", label: "Firewall", icon: Flame, color: "text-warning" },
     { key: "ids", label: "IDS", icon: Radar, color: "text-accent" },
     { key: "ips", label: "IPS", icon: ShieldAlert, color: "text-destructive" },
+    { key: "encryption", label: "Encryption", icon: KeyRound, color: "text-emerald-400" },
   ];
 
   return (
@@ -830,6 +832,9 @@ const IncidentResponse = () => {
             </div>
           </motion.div>
         )}
+
+        {/* ═══════════ ENCRYPTION TAB ═══════════ */}
+        {activeTab === "encryption" && <EncryptionPanel />}
       </div>
     </section>
   );
