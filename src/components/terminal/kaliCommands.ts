@@ -572,15 +572,8 @@ function cmdSs(): CmdResult {
   ] };
 }
 
-function cmdCurl(args: string[]): CmdResult {
-  const url = args.find(a => !a.startsWith("-")) || "";
-  return { output: [
-    `  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current`,
-    `                                 Dload  Upload   Total   Spent    Left  Speed`,
-    `100  1256  100  1256    0     0   6280      0 --:--:-- --:--:-- --:--:--  6280`,
-    `<!DOCTYPE html><html><head><title>${url}</title></head><body>OK</body></html>`,
-  ] };
-}
+
+
 
 function cmdNmap(args: string[]): CmdResult {
   const target = args.find(a => !a.startsWith("-")) || "192.168.1.1";
