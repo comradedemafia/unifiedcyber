@@ -702,28 +702,8 @@ function cmdGit(args: string[]): CmdResult {
   return { output: [`git: '${args[0]}' is not a git command.`] };
 }
 
-function cmdApt(args: string[]): CmdResult {
-  if (args[0] === "update") return { output: [
-    "Hit:1 http://kali.download/kali kali-rolling InRelease",
-    "Reading package lists... Done",
-    "Building dependency tree... Done",
-    "All packages are up to date.",
-  ] };
-  if (args[0] === "list" && args.includes("--installed")) return { output: [
-    "nmap/kali-rolling,now 7.94+git20230807-3kali1 amd64 [installed]",
-    "python3/kali-rolling,now 3.12.3-1 amd64 [installed]",
-    "metasploit-framework/kali-rolling,now 6.3.44-0kali1 amd64 [installed]",
-    "hydra/kali-rolling,now 9.5-0kali2 amd64 [installed]",
-    "sqlmap/kali-rolling,now 1.7.12-0kali1 all [installed]",
-  ] };
-  if (args[0] === "install") return { output: [
-    `Reading package lists... Done`,
-    `Building dependency tree... Done`,
-    `${args[1] || "package"} is already the newest version.`,
-    `0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.`,
-  ] };
-  return { output: ["Usage: apt [options] command", "  update, upgrade, install, remove, list, search"] };
-}
+
+
 
 function cmdSystemctl(args: string[]): CmdResult {
   if (args[0] === "status") {
