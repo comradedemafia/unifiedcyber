@@ -226,6 +226,55 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     tcpdump: () => ({ output: [`tcpdump: listening on eth0, link-type EN10MB`, `${new Date().toLocaleTimeString()} IP 192.168.1.10.443 > 192.168.1.100.54321: Flags [S.], seq 0, ack 1, win 65535`, `${new Date().toLocaleTimeString()} IP 192.168.1.100.54321 > 192.168.1.10.443: Flags [.], ack 1, win 65535`] }),
     metasploit: () => cmdMsfconsole(),
     burpsuite: () => ({ output: ["Burp Suite Professional v2024.2.1", "[*] Starting in headless mode..."] }),
+    // Additional commands
+    sort: () => cmdSort(args, state),
+    sed: () => cmdSed(args),
+    awk: () => cmdAwk(args),
+    cut: () => cmdCut(args, state),
+    tr: () => cmdTr(args),
+    xargs: () => cmdXargs(args),
+    tee: () => cmdTee(args, state),
+    diff: () => cmdDiff(args, state),
+    tar: () => cmdTar(args),
+    zip: () => cmdZip(args),
+    unzip: () => cmdUnzip(args),
+    ln: () => cmdLn(args),
+    stat: () => cmdStat(args, state),
+    readlink: () => cmdReadlink(args),
+    realpath: () => cmdRealpath(args, state),
+    basename: () => cmdBasename(args),
+    dirname: () => cmdDirname(args),
+    tree: () => cmdTree(args, state),
+    watch: () => cmdWatch(args),
+    screen: () => cmdScreen(args),
+    tmux: () => cmdTmux(args),
+    crontab: () => cmdCrontab(args),
+    wfuzz: () => cmdWfuzz(args),
+    crackmapexec: () => cmdCrackmapexec(args),
+    responder: () => cmdResponder(args),
+    smbclient: () => cmdSmbclient(args),
+    proxychains: () => cmdProxychains(args),
+    proxychains4: () => cmdProxychains(args),
+    socat: () => cmdSocat(args),
+    exiftool: () => cmdExiftool(args),
+    binwalk: () => cmdBinwalk(args),
+    gzip: () => ({ output: args.length ? [`${args[0]}: compressed to ${args[0]}.gz`] : ["gzip: missing operand"] }),
+    gunzip: () => ({ output: args.length ? [`${args[0]}: decompressed`] : ["gunzip: missing operand"] }),
+    less: () => cmdCat(args, state),
+    more: () => cmdCat(args, state),
+    vi: () => ({ output: ["[vim editor - not available in web terminal. Use: cat, echo > file, or nano]"] }),
+    vim: () => ({ output: ["[vim editor - not available in web terminal. Use: cat, echo > file, or nano]"] }),
+    nano: () => ({ output: ["[nano editor - not available in web terminal. Use: echo 'content' > file]"] }),
+    sleep: () => ({ output: [] }),
+    seq: () => {
+      const start = parseInt(args[0]) || 1;
+      const end = parseInt(args[1] || args[0]) || 10;
+      return { output: Array.from({length: Math.min(end - start + 1, 100)}, (_, i) => String(start + i)) };
+    },
+    rev: () => ({ output: args.length ? [args.join(" ").split("").reverse().join("")] : [] }),
+    factor: () => ({ output: args.length ? [`${args[0]}: ${args[0]}`] : ["factor: missing operand"] }),
+    bc: () => ({ output: ["bc 1.07.1 - GNU bc calculator", "Use: echo 'expression' | bc"] }),
+    dc: () => ({ output: ["dc - reverse-polish calculator"] }),
   };
 
   const handler = commands[cmd];
@@ -236,12 +285,16 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     const path = resolvePath(state.cwd, cmd);
     const node = getNode(state.fs, path);
     if (node?.type === "file") {
-      return { output: [`bash: ${cmd}: Permission denied`] };
+      if (node.permissions?.includes("x")) {
+        if (cmd.endsWith(".py")) return cmdPython3([cmd], state);
+        if (cmd.endsWith(".sh")) return { output: [`[*] Executing ${cmd}...`, `[✓] Script completed.`] };
+      }
+      return { output: [`bash: ${cmd}: Permission denied (use chmod +x ${cmd})`] };
     }
     return { output: [`bash: ${cmd}: No such file or directory`] };
   }
 
-  return { output: [`Command '${cmd}' not found, but can be installed with:`, `sudo apt install ${cmd}`] };
+  return getUnknownCommandSuggestion(cmd);
 };
 
 // Command implementations
