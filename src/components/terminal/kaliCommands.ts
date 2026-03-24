@@ -661,13 +661,18 @@ function cmdPython3(args: string[], state: TerminalState): CmdResult {
   }
   if (args[0] === "-c") {
     const code = args.slice(1).join(" ");
-    try {
-      if (code.includes("print(") && code.includes("+")) return { output: ["[Executed Python expression]"] };
-      if (code.includes("import this")) return { output: ["The Zen of Python, by Tim Peters", "", "Beautiful is better than ugly.", "Explicit is better than implicit.", "Simple is better than complex."] };
-      return { output: [`${code} → [OK]`] };
-    } catch {
-      return { output: [`SyntaxError: invalid syntax`] };
+    if (code.includes("print(") && code.includes("+")) return { output: ["[Executed Python expression]"] };
+    if (code.includes("import this")) return { output: ["The Zen of Python, by Tim Peters", "", "Beautiful is better than ugly.", "Explicit is better than implicit.", "Simple is better than complex."] };
+    if (code.includes("print(")) {
+      const match = code.match(/print\(["'](.+?)["']\)/);
+      if (match) return { output: [match[1]] };
     }
+    return { output: [`${code} → [OK]`] };
+  }
+  if (args[0] === "-m") {
+    if (args[1] === "http.server") return { output: [`Serving HTTP on 0.0.0.0 port ${args[2] || "8000"} (http://0.0.0.0:${args[2] || "8000"}/) ...`] };
+    if (args[1] === "pip") return { output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] };
+    return { output: [`/usr/bin/python3: No module named ${args[1]}`] };
   }
   // Run .py file
   const scriptName = args[0];
@@ -676,40 +681,7 @@ function cmdPython3(args: string[], state: TerminalState): CmdResult {
   if (!node || node.type !== "file") {
     return { output: [`python3: can't open file '${scriptName}': [Errno 2] No such file or directory`] };
   }
-  // Special known scripts
-  if (scriptName.includes("scanner")) {
-    return { output: [
-      "[*] UCSF Network Scanner v2.1",
-      `[*] Target: ${args[1] === "--target" ? args[2] || "192.168.1.0/24" : "192.168.1.0/24"}`,
-      "[+] Discovering live hosts...",
-      "    ├── 192.168.1.1   [GATEWAY]  UP",
-      "    ├── 192.168.1.10  [SERVER]   UP",
-      "    └── 192.168.1.105 [SUSPECT]  UP ⚠️",
-      "[!] ALERT: Potential C2 beacon detected on 192.168.1.105:9090",
-      "[✓] Alert dispatched. Firewall rule applied.",
-    ] };
-  }
-  if (scriptName.includes("vuln")) {
-    return { output: [
-      "[*] UCSF Vulnerability Assessment v1.4",
-      "[*] Scanning...",
-      "  VULN-001 [CRITICAL] SQL Injection on /api/users",
-      "  VULN-002 [HIGH] XSS on /search",
-      "  VULN-003 [MEDIUM] Outdated TLS 1.0",
-      "[✓] Report exported → /var/log/ucsf/vuln_report.pdf",
-    ] };
-  }
-  if (scriptName.includes("ids")) {
-    return { output: [
-      "[*] UCSF IDS Monitor v3.0",
-      "[✓] Connected to Wazuh + Suricata",
-      `[${new Date().toLocaleTimeString()}] SYN flood detected from 45.33.32.156`,
-      `[${new Date().toLocaleTimeString()}] SQLi attempt blocked`,
-      "[!] COORDINATED ATTACK detected",
-      "[✓] IP 45.33.32.156 blocked. Incident INC-2026-0847 created.",
-    ] };
-  }
-  return { output: [`[*] Executing ${scriptName}...`, `[✓] Script completed successfully.`] };
+  return { output: executePythonScript(scriptName, args.slice(1), state) };
 }
 
 function cmdGit(args: string[]): CmdResult {
