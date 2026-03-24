@@ -121,8 +121,9 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     pip3: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
     pip: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
     git: () => cmdGit(args),
-    apt: () => cmdApt(args),
-    "apt-get": () => cmdApt(args),
+    apt: () => handleAptFull(args, state),
+    "apt-get": () => handleAptFull(args, state),
+    dpkg: () => ({ output: args.includes("-l") ? ["ii  nmap  7.94  amd64  Network exploration tool", "ii  python3  3.12.3  amd64  Python interpreter"] : ["dpkg: error: need an action option"] }),
     sudo: () => {
       const subCmd = args.join(" ");
       return executeCommand(subCmd, { ...state, user: "root" });
