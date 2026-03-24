@@ -1,4 +1,13 @@
 import { FSNode, resolvePath, getNode, getParentAndName, formatSize } from "./kaliFileSystem";
+import { executePythonScript } from "./pythonScripts";
+import {
+  handleAptFull, cmdSort, cmdSed, cmdAwk, cmdCut, cmdTr, cmdXargs, cmdTee, cmdDiff,
+  cmdTar, cmdZip, cmdUnzip, cmdLn, cmdStat, cmdReadlink, cmdRealpath, cmdBasename,
+  cmdDirname, cmdCp, cmdMv, cmdWget, cmdCurl, cmdWfuzz, cmdCrackmapexec, cmdResponder,
+  cmdNiktoFull, cmdSmbclient, cmdChmod, cmdChown, cmdTree, cmdWatch, cmdScreen, cmdTmux,
+  cmdCrontab, cmdProxychains, cmdSocat, cmdExiftool, cmdBinwalk,
+  isCommandInstalled, getUnknownCommandSuggestion,
+} from "./additionalCommands";
 
 export interface TerminalState {
   cwd: string;
