@@ -1,4 +1,13 @@
 import { FSNode, resolvePath, getNode, getParentAndName, formatSize } from "./kaliFileSystem";
+import { executePythonScript } from "./pythonScripts";
+import {
+  handleAptFull, cmdSort, cmdSed, cmdAwk, cmdCut, cmdTr, cmdXargs, cmdTee, cmdDiff,
+  cmdTar, cmdZip, cmdUnzip, cmdLn, cmdStat, cmdReadlink, cmdRealpath, cmdBasename,
+  cmdDirname, cmdCp, cmdMv, cmdWget, cmdCurl, cmdWfuzz, cmdCrackmapexec, cmdResponder,
+  cmdNiktoFull, cmdSmbclient, cmdChmod, cmdChown, cmdTree, cmdWatch, cmdScreen, cmdTmux,
+  cmdCrontab, cmdProxychains, cmdSocat, cmdExiftool, cmdBinwalk,
+  isCommandInstalled, getUnknownCommandSuggestion,
+} from "./additionalCommands";
 
 export interface TerminalState {
   cwd: string;
@@ -75,8 +84,8 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     touch: () => cmdTouch(args, state),
     mkdir: () => cmdMkdir(args, state),
     rm: () => cmdRm(args, state),
-    cp: () => ({ output: [`cp: missing operand`] }),
-    mv: () => ({ output: [`mv: missing operand`] }),
+    cp: () => cmdCp(args, state),
+    mv: () => cmdMv(args, state),
     head: () => cmdHead(args, state),
     tail: () => cmdTail(args, state),
     grep: () => cmdGrep(args, state),
@@ -85,8 +94,8 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     which: () => cmdWhich(args),
     type: () => cmdType(args),
     file: () => cmdFile(args, state),
-    chmod: () => ({ output: [] }),
-    chown: () => ({ output: [] }),
+    chmod: () => cmdChmod(args, state),
+    chown: () => cmdChown(args, state),
     man: () => cmdMan(args),
     help: () => cmdHelp(),
     env: () => ({ output: Object.entries(state.env).map(([k, v]) => `${k}=${v}`) }),
@@ -105,15 +114,16 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     netstat: () => cmdNetstat(args),
     ss: () => cmdSs(),
     curl: () => cmdCurl(args),
-    wget: () => ({ output: [`--${new Date().toISOString()}--  ${args[0] || ""}`, `Connecting to ${args[0] || "unknown"}... failed: Connection refused.`] }),
+    wget: () => cmdWget(args),
     nmap: () => cmdNmap(args),
     python3: () => cmdPython3(args, state),
     python: () => cmdPython3(args, state),
     pip3: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
     pip: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
     git: () => cmdGit(args),
-    apt: () => cmdApt(args),
-    "apt-get": () => cmdApt(args),
+    apt: () => handleAptFull(args, state),
+    "apt-get": () => handleAptFull(args, state),
+    dpkg: () => ({ output: args.includes("-l") ? ["ii  nmap  7.94  amd64  Network exploration tool", "ii  python3  3.12.3  amd64  Python interpreter"] : ["dpkg: error: need an action option"] }),
     sudo: () => {
       const subCmd = args.join(" ");
       return executeCommand(subCmd, { ...state, user: "root" });
@@ -216,6 +226,55 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     tcpdump: () => ({ output: [`tcpdump: listening on eth0, link-type EN10MB`, `${new Date().toLocaleTimeString()} IP 192.168.1.10.443 > 192.168.1.100.54321: Flags [S.], seq 0, ack 1, win 65535`, `${new Date().toLocaleTimeString()} IP 192.168.1.100.54321 > 192.168.1.10.443: Flags [.], ack 1, win 65535`] }),
     metasploit: () => cmdMsfconsole(),
     burpsuite: () => ({ output: ["Burp Suite Professional v2024.2.1", "[*] Starting in headless mode..."] }),
+    // Additional commands
+    sort: () => cmdSort(args, state),
+    sed: () => cmdSed(args),
+    awk: () => cmdAwk(args),
+    cut: () => cmdCut(args, state),
+    tr: () => cmdTr(args),
+    xargs: () => cmdXargs(args),
+    tee: () => cmdTee(args, state),
+    diff: () => cmdDiff(args, state),
+    tar: () => cmdTar(args),
+    zip: () => cmdZip(args),
+    unzip: () => cmdUnzip(args),
+    ln: () => cmdLn(args),
+    stat: () => cmdStat(args, state),
+    readlink: () => cmdReadlink(args),
+    realpath: () => cmdRealpath(args, state),
+    basename: () => cmdBasename(args),
+    dirname: () => cmdDirname(args),
+    tree: () => cmdTree(args, state),
+    watch: () => cmdWatch(args),
+    screen: () => cmdScreen(args),
+    tmux: () => cmdTmux(args),
+    crontab: () => cmdCrontab(args),
+    wfuzz: () => cmdWfuzz(args),
+    crackmapexec: () => cmdCrackmapexec(args),
+    responder: () => cmdResponder(args),
+    smbclient: () => cmdSmbclient(args),
+    proxychains: () => cmdProxychains(args),
+    proxychains4: () => cmdProxychains(args),
+    socat: () => cmdSocat(args),
+    exiftool: () => cmdExiftool(args),
+    binwalk: () => cmdBinwalk(args),
+    gzip: () => ({ output: args.length ? [`${args[0]}: compressed to ${args[0]}.gz`] : ["gzip: missing operand"] }),
+    gunzip: () => ({ output: args.length ? [`${args[0]}: decompressed`] : ["gunzip: missing operand"] }),
+    less: () => cmdCat(args, state),
+    more: () => cmdCat(args, state),
+    vi: () => ({ output: ["[vim editor - not available in web terminal. Use: cat, echo > file, or nano]"] }),
+    vim: () => ({ output: ["[vim editor - not available in web terminal. Use: cat, echo > file, or nano]"] }),
+    nano: () => ({ output: ["[nano editor - not available in web terminal. Use: echo 'content' > file]"] }),
+    sleep: () => ({ output: [] }),
+    seq: () => {
+      const start = parseInt(args[0]) || 1;
+      const end = parseInt(args[1] || args[0]) || 10;
+      return { output: Array.from({length: Math.min(end - start + 1, 100)}, (_, i) => String(start + i)) };
+    },
+    rev: () => ({ output: args.length ? [args.join(" ").split("").reverse().join("")] : [] }),
+    factor: () => ({ output: args.length ? [`${args[0]}: ${args[0]}`] : ["factor: missing operand"] }),
+    bc: () => ({ output: ["bc 1.07.1 - GNU bc calculator", "Use: echo 'expression' | bc"] }),
+    dc: () => ({ output: ["dc - reverse-polish calculator"] }),
   };
 
   const handler = commands[cmd];
@@ -226,12 +285,16 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     const path = resolvePath(state.cwd, cmd);
     const node = getNode(state.fs, path);
     if (node?.type === "file") {
-      return { output: [`bash: ${cmd}: Permission denied`] };
+      if (node.permissions?.includes("x")) {
+        if (cmd.endsWith(".py")) return cmdPython3([cmd], state);
+        if (cmd.endsWith(".sh")) return { output: [`[*] Executing ${cmd}...`, `[✓] Script completed.`] };
+      }
+      return { output: [`bash: ${cmd}: Permission denied (use chmod +x ${cmd})`] };
     }
     return { output: [`bash: ${cmd}: No such file or directory`] };
   }
 
-  return { output: [`Command '${cmd}' not found, but can be installed with:`, `sudo apt install ${cmd}`] };
+  return getUnknownCommandSuggestion(cmd);
 };
 
 // Command implementations
@@ -467,17 +530,29 @@ function cmdMan(args: string[]): CmdResult {
 
 function cmdHelp(): CmdResult {
   return { output: [
-    "┌─────────────────────────────────────────────────────────────────┐",
-    "│  Kali Linux 2026.1 — UCSF Security Terminal                   │",
-    "├─────────────────────────────────────────────────────────────────┤",
-    "│ FILE:    ls cd pwd cat head tail touch mkdir rm cp mv find     │",
-    "│ TEXT:    echo grep wc sort                                     │",
-    "│ SYSTEM:  uname hostname whoami id ps top df free uptime date   │",
-    "│ NETWORK: ifconfig ip ping netstat ss curl wget nmap            │",
-    "│ SECURITY: nmap msfconsole hydra sqlmap nikto gobuster john     │",
-    "│ PYTHON:  python3 scanner.py / vuln_check.py / ids_monitor.py  │",
-    "│ OTHER:   history alias env export clear neofetch               │",
-    "└─────────────────────────────────────────────────────────────────┘",
+    "┌──────────────────────────────────────────────────────────────────────┐",
+    "│  Kali Linux 2026.1 — UCSF Security Terminal (Full OS Simulation)   │",
+    "├──────────────────────────────────────────────────────────────────────┤",
+    "│ FILE:     ls cd pwd cat head tail touch mkdir rm cp mv find tree   │",
+    "│           stat chmod chown ln diff sort cut tar zip unzip          │",
+    "│ TEXT:     echo grep wc sed awk tr rev tee xargs                    │",
+    "│ SYSTEM:   uname hostname whoami id ps top df free uptime date      │",
+    "│           lsblk mount dmesg journalctl systemctl crontab           │",
+    "│ NETWORK:  ifconfig ip ping netstat ss curl wget nmap tcpdump       │",
+    "│ SECURITY: nmap msfconsole hydra sqlmap nikto gobuster john wfuzz   │",
+    "│           hashcat crackmapexec responder smbclient burpsuite       │",
+    "│           binwalk exiftool proxychains socat                       │",
+    "│ PYTHON:   python3 port_scanner.py / packet_sniffer.py             │",
+    "│           password_cracker.py / wifi_cracker.py / forensics_tool  │",
+    "│           exploit_framework.py / keylogger_detector.py            │",
+    "│           reverse_shell_gen.py / ids_monitor.py / scanner.py      │",
+    "│ PACKAGE:  apt install/update/upgrade/search/remove/show           │",
+    "│ OTHER:    history alias env export clear neofetch screen tmux      │",
+    "├──────────────────────────────────────────────────────────────────────┤",
+    "│ TIP: apt install <pkg> to add new tools                           │",
+    "│ TIP: python3 <script.py> to run security scripts                  │",
+    "│ TIP: Use pipes: command | grep pattern | wc -l                    │",
+    "└──────────────────────────────────────────────────────────────────────┘",
   ] };
 }
 
@@ -563,15 +638,8 @@ function cmdSs(): CmdResult {
   ] };
 }
 
-function cmdCurl(args: string[]): CmdResult {
-  const url = args.find(a => !a.startsWith("-")) || "";
-  return { output: [
-    `  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current`,
-    `                                 Dload  Upload   Total   Spent    Left  Speed`,
-    `100  1256  100  1256    0     0   6280      0 --:--:-- --:--:-- --:--:--  6280`,
-    `<!DOCTYPE html><html><head><title>${url}</title></head><body>OK</body></html>`,
-  ] };
-}
+
+
 
 function cmdNmap(args: string[]): CmdResult {
   const target = args.find(a => !a.startsWith("-")) || "192.168.1.1";
@@ -605,13 +673,18 @@ function cmdPython3(args: string[], state: TerminalState): CmdResult {
   }
   if (args[0] === "-c") {
     const code = args.slice(1).join(" ");
-    try {
-      if (code.includes("print(") && code.includes("+")) return { output: ["[Executed Python expression]"] };
-      if (code.includes("import this")) return { output: ["The Zen of Python, by Tim Peters", "", "Beautiful is better than ugly.", "Explicit is better than implicit.", "Simple is better than complex."] };
-      return { output: [`${code} → [OK]`] };
-    } catch {
-      return { output: [`SyntaxError: invalid syntax`] };
+    if (code.includes("print(") && code.includes("+")) return { output: ["[Executed Python expression]"] };
+    if (code.includes("import this")) return { output: ["The Zen of Python, by Tim Peters", "", "Beautiful is better than ugly.", "Explicit is better than implicit.", "Simple is better than complex."] };
+    if (code.includes("print(")) {
+      const match = code.match(/print\(["'](.+?)["']\)/);
+      if (match) return { output: [match[1]] };
     }
+    return { output: [`${code} → [OK]`] };
+  }
+  if (args[0] === "-m") {
+    if (args[1] === "http.server") return { output: [`Serving HTTP on 0.0.0.0 port ${args[2] || "8000"} (http://0.0.0.0:${args[2] || "8000"}/) ...`] };
+    if (args[1] === "pip") return { output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] };
+    return { output: [`/usr/bin/python3: No module named ${args[1]}`] };
   }
   // Run .py file
   const scriptName = args[0];
@@ -620,40 +693,7 @@ function cmdPython3(args: string[], state: TerminalState): CmdResult {
   if (!node || node.type !== "file") {
     return { output: [`python3: can't open file '${scriptName}': [Errno 2] No such file or directory`] };
   }
-  // Special known scripts
-  if (scriptName.includes("scanner")) {
-    return { output: [
-      "[*] UCSF Network Scanner v2.1",
-      `[*] Target: ${args[1] === "--target" ? args[2] || "192.168.1.0/24" : "192.168.1.0/24"}`,
-      "[+] Discovering live hosts...",
-      "    ├── 192.168.1.1   [GATEWAY]  UP",
-      "    ├── 192.168.1.10  [SERVER]   UP",
-      "    └── 192.168.1.105 [SUSPECT]  UP ⚠️",
-      "[!] ALERT: Potential C2 beacon detected on 192.168.1.105:9090",
-      "[✓] Alert dispatched. Firewall rule applied.",
-    ] };
-  }
-  if (scriptName.includes("vuln")) {
-    return { output: [
-      "[*] UCSF Vulnerability Assessment v1.4",
-      "[*] Scanning...",
-      "  VULN-001 [CRITICAL] SQL Injection on /api/users",
-      "  VULN-002 [HIGH] XSS on /search",
-      "  VULN-003 [MEDIUM] Outdated TLS 1.0",
-      "[✓] Report exported → /var/log/ucsf/vuln_report.pdf",
-    ] };
-  }
-  if (scriptName.includes("ids")) {
-    return { output: [
-      "[*] UCSF IDS Monitor v3.0",
-      "[✓] Connected to Wazuh + Suricata",
-      `[${new Date().toLocaleTimeString()}] SYN flood detected from 45.33.32.156`,
-      `[${new Date().toLocaleTimeString()}] SQLi attempt blocked`,
-      "[!] COORDINATED ATTACK detected",
-      "[✓] IP 45.33.32.156 blocked. Incident INC-2026-0847 created.",
-    ] };
-  }
-  return { output: [`[*] Executing ${scriptName}...`, `[✓] Script completed successfully.`] };
+  return { output: executePythonScript(scriptName, args.slice(1), state) };
 }
 
 function cmdGit(args: string[]): CmdResult {
@@ -674,28 +714,8 @@ function cmdGit(args: string[]): CmdResult {
   return { output: [`git: '${args[0]}' is not a git command.`] };
 }
 
-function cmdApt(args: string[]): CmdResult {
-  if (args[0] === "update") return { output: [
-    "Hit:1 http://kali.download/kali kali-rolling InRelease",
-    "Reading package lists... Done",
-    "Building dependency tree... Done",
-    "All packages are up to date.",
-  ] };
-  if (args[0] === "list" && args.includes("--installed")) return { output: [
-    "nmap/kali-rolling,now 7.94+git20230807-3kali1 amd64 [installed]",
-    "python3/kali-rolling,now 3.12.3-1 amd64 [installed]",
-    "metasploit-framework/kali-rolling,now 6.3.44-0kali1 amd64 [installed]",
-    "hydra/kali-rolling,now 9.5-0kali2 amd64 [installed]",
-    "sqlmap/kali-rolling,now 1.7.12-0kali1 all [installed]",
-  ] };
-  if (args[0] === "install") return { output: [
-    `Reading package lists... Done`,
-    `Building dependency tree... Done`,
-    `${args[1] || "package"} is already the newest version.`,
-    `0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.`,
-  ] };
-  return { output: ["Usage: apt [options] command", "  update, upgrade, install, remove, list, search"] };
-}
+
+
 
 function cmdSystemctl(args: string[]): CmdResult {
   if (args[0] === "status") {
