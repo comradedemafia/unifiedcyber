@@ -224,10 +224,11 @@ const SecurityTerminal = () => {
             {[
               { label: "neofetch", cmd: "neofetch" },
               { label: "nmap scan", cmd: "nmap -sV 192.168.1.0/24" },
-              { label: "ifconfig", cmd: "ifconfig" },
-              { label: "ls -la", cmd: "ls -la" },
-              { label: "uname -a", cmd: "uname -a" },
-              { label: "msfconsole", cmd: "msfconsole" },
+              { label: "port scanner", cmd: "python3 port_scanner.py --target 192.168.1.0/24" },
+              { label: "packet sniffer", cmd: "python3 packet_sniffer.py -i eth0" },
+              { label: "crack hash", cmd: "python3 password_cracker.py -m md5 -w /usr/share/wordlists/rockyou.txt" },
+              { label: "wifi audit", cmd: "python3 wifi_cracker.py" },
+              { label: "help", cmd: "help" },
             ].map((q) => (
               <button
                 key={q.label}
