@@ -262,9 +262,9 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     gunzip: () => ({ output: args.length ? [`${args[0]}: decompressed`] : ["gunzip: missing operand"] }),
     less: () => cmdCat(args, state),
     more: () => cmdCat(args, state),
-    vi: () => ({ output: ["[vim editor - not available in web terminal. Use: cat, echo > file, or nano]"] }),
-    vim: () => ({ output: ["[vim editor - not available in web terminal. Use: cat, echo > file, or nano]"] }),
-    nano: () => ({ output: ["[nano editor - not available in web terminal. Use: echo 'content' > file]"] }),
+    vi: () => ({ output: [`__EDITOR__:vim:${args.join(" ")}`] }),
+    vim: () => ({ output: [`__EDITOR__:vim:${args.join(" ")}`] }),
+    nano: () => ({ output: [`__EDITOR__:nano:${args.join(" ")}`] }),
     sleep: () => ({ output: [] }),
     seq: () => {
       const start = parseInt(args[0]) || 1;
