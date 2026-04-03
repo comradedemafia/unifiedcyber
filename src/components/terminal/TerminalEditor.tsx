@@ -10,6 +10,7 @@ import {
 } from "./editorSimulation";
 import { TerminalState } from "./kaliCommands";
 import { FSNode } from "./kaliFileSystem";
+import { highlightLine } from "./syntaxHighlight";
 
 interface TerminalEditorProps {
   editor: EditorState;
@@ -51,7 +52,6 @@ const TerminalEditor = ({ editor: initialEditor, termState, onClose }: TerminalE
         }
       } else if (result.action === "quit") {
         if (editor.modified) {
-          // For simplicity, save and quit
           const newFs = handleSave();
           onClose("", newFs || undefined);
         } else {
@@ -118,6 +118,25 @@ const TerminalEditor = ({ editor: initialEditor, termState, onClose }: TerminalE
   const endLine = Math.min(editor.lines.length, startLine + VISIBLE_LINES);
 
   const isVim = editor.type === "vim";
+  const fileName = editor.fileName;
+
+  const renderLineContent = (lineContent: string, lineIdx: number, isCurrentLine: boolean) => {
+    if (isCurrentLine) {
+      // For the current line, we need to show cursor, so render with highlight but split at cursor
+      const before = lineContent.slice(0, editor.cursorCol);
+      const cursorChar = lineContent[editor.cursorCol] || " ";
+      const after = lineContent.slice(editor.cursorCol + 1);
+
+      return (
+        <>
+          <span>{highlightLine(before, fileName)}</span>
+          <span className="bg-primary text-primary-foreground">{cursorChar}</span>
+          <span>{highlightLine(after, fileName)}</span>
+        </>
+      );
+    }
+    return highlightLine(lineContent, fileName);
+  };
 
   return (
     <div
@@ -129,7 +148,7 @@ const TerminalEditor = ({ editor: initialEditor, termState, onClose }: TerminalE
     >
       {/* Title bar */}
       {!isVim && (
-        <div className="text-center bg-muted/30 text-foreground py-0.5 border-b border-border/30">
+        <div className="text-center bg-muted/30 text-white py-0.5 border-b border-border/30">
           GNU nano 7.2{" "}
           <span className="text-primary">{editor.fileName}</span>
           {editor.modified && <span className="text-warning ml-2">(Modified)</span>}
@@ -167,17 +186,7 @@ const TerminalEditor = ({ editor: initialEditor, termState, onClose }: TerminalE
                 </span>
               )}
               <span className="flex-1 whitespace-pre">
-                {isCurrentLine ? (
-                  <>
-                    {lineContent.slice(0, editor.cursorCol)}
-                    <span className="bg-primary text-primary-foreground">
-                      {lineContent[editor.cursorCol] || " "}
-                    </span>
-                    {lineContent.slice(editor.cursorCol + 1)}
-                  </>
-                ) : (
-                  lineContent || "\u00A0"
-                )}
+                {renderLineContent(lineContent, lineIdx, isCurrentLine)}
               </span>
             </div>
           );
@@ -187,7 +196,7 @@ const TerminalEditor = ({ editor: initialEditor, termState, onClose }: TerminalE
       {/* Status / bottom bar */}
       {isVim ? (
         <div className="border-t border-border/30 mt-1">
-          <div className={`px-2 py-0.5 ${editor.vimMode === "insert" ? "text-success" : editor.vimMode === "command" ? "text-foreground" : "text-muted-foreground"}`}>
+          <div className={`px-2 py-0.5 ${editor.vimMode === "insert" ? "text-success" : editor.vimMode === "command" ? "text-white" : "text-muted-foreground"}`}>
             {editor.vimMode === "command" ? (
               <span>{editor.vimCommandBuffer}<span className="bg-primary text-primary-foreground">&nbsp;</span></span>
             ) : editor.vimMode === "insert" ? (
@@ -206,14 +215,14 @@ const TerminalEditor = ({ editor: initialEditor, termState, onClose }: TerminalE
             {editor.message || `[ line ${editor.cursorRow + 1}/${editor.lines.length}, col ${editor.cursorCol + 1}/${(editor.lines[editor.cursorRow]?.length || 0) + 1} ]`}
           </div>
           <div className="flex flex-wrap justify-center gap-x-3 px-2 py-1 bg-muted/20 text-[10px]">
-            <span><span className="text-foreground font-bold">^G</span> <span className="text-muted-foreground">Help</span></span>
-            <span><span className="text-foreground font-bold">^O</span> <span className="text-muted-foreground">Write Out</span></span>
-            <span><span className="text-foreground font-bold">^W</span> <span className="text-muted-foreground">Where Is</span></span>
-            <span><span className="text-foreground font-bold">^K</span> <span className="text-muted-foreground">Cut</span></span>
-            <span><span className="text-foreground font-bold">^X</span> <span className="text-muted-foreground">Exit</span></span>
-            <span><span className="text-foreground font-bold">^R</span> <span className="text-muted-foreground">Read File</span></span>
-            <span><span className="text-foreground font-bold">^\\</span> <span className="text-muted-foreground">Replace</span></span>
-            <span><span className="text-foreground font-bold">^C</span> <span className="text-muted-foreground">Cur Pos</span></span>
+            <span><span className="text-white font-bold">^G</span> <span className="text-muted-foreground">Help</span></span>
+            <span><span className="text-white font-bold">^O</span> <span className="text-muted-foreground">Write Out</span></span>
+            <span><span className="text-white font-bold">^W</span> <span className="text-muted-foreground">Where Is</span></span>
+            <span><span className="text-white font-bold">^K</span> <span className="text-muted-foreground">Cut</span></span>
+            <span><span className="text-white font-bold">^X</span> <span className="text-muted-foreground">Exit</span></span>
+            <span><span className="text-white font-bold">^R</span> <span className="text-muted-foreground">Read File</span></span>
+            <span><span className="text-white font-bold">^\</span> <span className="text-muted-foreground">Replace</span></span>
+            <span><span className="text-white font-bold">^C</span> <span className="text-muted-foreground">Cur Pos</span></span>
           </div>
         </div>
       )}
