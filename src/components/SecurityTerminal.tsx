@@ -168,7 +168,7 @@ const SecurityTerminal = () => {
       e.preventDefault();
       const partial = input.trim();
       if (!partial) return;
-      const cmds = ["ls", "cd", "pwd", "cat", "echo", "whoami", "uname", "ifconfig", "ping", "nmap", "python3", "help", "clear", "history", "grep", "find", "mkdir", "touch", "rm", "head", "tail", "neofetch", "msfconsole", "hydra", "sqlmap", "iptables", "systemctl", "ps", "top", "df", "free", "netstat", "curl", "wget", "apt", "git", "vim", "nano", "vi"];
+      const cmds = ["ls", "cd", "pwd", "cat", "echo", "whoami", "uname", "ifconfig", "ping", "nmap", "python3", "help", "clear", "history", "grep", "find", "mkdir", "touch", "rm", "head", "tail", "neofetch", "msfconsole", "hydra", "sqlmap", "iptables", "systemctl", "ps", "top", "df", "free", "netstat", "curl", "wget", "apt", "git", "vim", "nano", "vi", "mc"];
       const matches = cmds.filter(c => c.startsWith(partial));
       if (matches.length === 1) setInput(matches[0] + " ");
       else if (matches.length > 1) {
