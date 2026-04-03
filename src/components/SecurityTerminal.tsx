@@ -218,7 +218,7 @@ const SecurityTerminal = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="max-w-4xl mx-auto rounded-xl border border-border/60 bg-background overflow-hidden shadow-2xl"
-          onClick={() => !editorState.active && inputRef.current?.focus()}
+           onClick={() => !editorState.active && !mcActive && inputRef.current?.focus()}
         >
           {/* Title bar */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border/40">
@@ -229,7 +229,9 @@ const SecurityTerminal = () => {
                 <div className="w-3 h-3 rounded-full bg-success/60" />
               </div>
               <span className="font-mono text-[10px] text-muted-foreground ml-2">
-                {editorState.active
+                {mcActive
+                  ? "mc — GNU Midnight Commander"
+                  : editorState.active
                   ? `${editorState.type === "vim" ? "vim" : "nano"} — ${editorState.fileName}`
                   : `kali@kali: ${state.cwd === "/home/kali" ? "~" : state.cwd}`
                 }
@@ -237,15 +239,17 @@ const SecurityTerminal = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-[9px] text-muted-foreground/50">
-                {editorState.active ? (editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2") : "Kali 2026.1 | bash 5.2"}
+                {mcActive ? "MC 4.8.31" : editorState.active ? (editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2") : "Kali 2026.1 | bash 5.2"}
               </span>
               <Terminal className="w-3.5 h-3.5 text-muted-foreground/40" />
             </div>
           </div>
 
-          {/* Terminal body or Editor */}
+          {/* Terminal body, Editor, or MC */}
           <div ref={scrollRef} className="h-[480px] overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-[hsl(var(--background))]">
-            {editorState.active ? (
+            {mcActive ? (
+              <MidnightCommander termState={state} onClose={handleMcClose} />
+            ) : editorState.active ? (
               <TerminalEditor
                 editor={editorState}
                 termState={state}
