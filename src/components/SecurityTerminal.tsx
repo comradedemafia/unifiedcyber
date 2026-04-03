@@ -282,7 +282,7 @@ const SecurityTerminal = () => {
           </div>
 
           {/* Quick commands */}
-          {!editorState.active && (
+          {!editorState.active && !mcActive && (
             <div className="px-4 py-3 border-t border-border/30 bg-card/50 flex flex-wrap gap-2">
               <span className="text-[9px] text-muted-foreground/40 font-mono mr-2 self-center">Quick:</span>
               {[
@@ -290,8 +290,8 @@ const SecurityTerminal = () => {
                 { label: "nmap scan", cmd: "nmap -sV 192.168.1.0/24" },
                 { label: "vim demo", cmd: "vim /etc/os-release" },
                 { label: "nano demo", cmd: "nano /home/kali/.bashrc" },
+                { label: "mc", cmd: "mc" },
                 { label: "port scanner", cmd: "python3 port_scanner.py --target 192.168.1.0/24" },
-                { label: "wifi audit", cmd: "python3 wifi_cracker.py" },
                 { label: "help", cmd: "help" },
               ].map((q) => (
                 <button
