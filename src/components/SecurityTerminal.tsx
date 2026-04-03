@@ -78,6 +78,13 @@ const SecurityTerminal = () => {
       return;
     }
 
+    // Handle MC
+    if (result.output.length === 1 && result.output[0] === "__MC__") {
+      setMcActive(true);
+      setState(prev => ({ ...prev, history: [...prev.history, cmd] }));
+      return;
+    }
+
     // Handle clear
     if (result.output.length === 1 && result.output[0] === "__CLEAR__") {
       setLines([]);
