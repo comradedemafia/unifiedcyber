@@ -37,6 +37,7 @@ const SecurityTerminal = () => {
   const [input, setInput] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [editorState, setEditorState] = useState<EditorState>(createEditorState());
+  const [mcActive, setMcActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
