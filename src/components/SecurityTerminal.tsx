@@ -5,6 +5,7 @@ import { createFileSystem, FSNode } from "./terminal/kaliFileSystem";
 import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
 import TerminalEditor from "./terminal/TerminalEditor";
+import MidnightCommander from "./terminal/MidnightCommander";
 
 const SecurityTerminal = () => {
   const [state, setState] = useState<TerminalState>(() => ({
