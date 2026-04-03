@@ -138,6 +138,14 @@ const SecurityTerminal = () => {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
+  const handleMcClose = useCallback((newCwd?: string) => {
+    setMcActive(false);
+    if (newCwd) {
+      setState(prev => ({ ...prev, cwd: newCwd, env: { ...prev.env, PWD: newCwd } }));
+    }
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
