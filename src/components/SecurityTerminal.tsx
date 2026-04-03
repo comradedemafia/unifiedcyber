@@ -5,6 +5,7 @@ import { createFileSystem, FSNode } from "./terminal/kaliFileSystem";
 import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
 import TerminalEditor from "./terminal/TerminalEditor";
+import MidnightCommander from "./terminal/MidnightCommander";
 
 const SecurityTerminal = () => {
   const [state, setState] = useState<TerminalState>(() => ({
@@ -36,6 +37,7 @@ const SecurityTerminal = () => {
   const [input, setInput] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [editorState, setEditorState] = useState<EditorState>(createEditorState());
+  const [mcActive, setMcActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +74,13 @@ const SecurityTerminal = () => {
         { text: `${editorType}: "${editorArgs[0]}": Is a directory`, type: "output" },
         { text: "", type: "system" },
       ]);
+      setState(prev => ({ ...prev, history: [...prev.history, cmd] }));
+      return;
+    }
+
+    // Handle MC
+    if (result.output.length === 1 && result.output[0] === "__MC__") {
+      setMcActive(true);
       setState(prev => ({ ...prev, history: [...prev.history, cmd] }));
       return;
     }
@@ -129,6 +138,14 @@ const SecurityTerminal = () => {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
+  const handleMcClose = useCallback((newCwd?: string) => {
+    setMcActive(false);
+    if (newCwd) {
+      setState(prev => ({ ...prev, cwd: newCwd, env: { ...prev.env, PWD: newCwd } }));
+    }
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -151,7 +168,7 @@ const SecurityTerminal = () => {
       e.preventDefault();
       const partial = input.trim();
       if (!partial) return;
-      const cmds = ["ls", "cd", "pwd", "cat", "echo", "whoami", "uname", "ifconfig", "ping", "nmap", "python3", "help", "clear", "history", "grep", "find", "mkdir", "touch", "rm", "head", "tail", "neofetch", "msfconsole", "hydra", "sqlmap", "iptables", "systemctl", "ps", "top", "df", "free", "netstat", "curl", "wget", "apt", "git", "vim", "nano", "vi"];
+      const cmds = ["ls", "cd", "pwd", "cat", "echo", "whoami", "uname", "ifconfig", "ping", "nmap", "python3", "help", "clear", "history", "grep", "find", "mkdir", "touch", "rm", "head", "tail", "neofetch", "msfconsole", "hydra", "sqlmap", "iptables", "systemctl", "ps", "top", "df", "free", "netstat", "curl", "wget", "apt", "git", "vim", "nano", "vi", "mc"];
       const matches = cmds.filter(c => c.startsWith(partial));
       if (matches.length === 1) setInput(matches[0] + " ");
       else if (matches.length > 1) {
@@ -201,7 +218,7 @@ const SecurityTerminal = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="max-w-4xl mx-auto rounded-xl border border-border/60 bg-background overflow-hidden shadow-2xl"
-          onClick={() => !editorState.active && inputRef.current?.focus()}
+           onClick={() => !editorState.active && !mcActive && inputRef.current?.focus()}
         >
           {/* Title bar */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border/40">
@@ -212,7 +229,9 @@ const SecurityTerminal = () => {
                 <div className="w-3 h-3 rounded-full bg-success/60" />
               </div>
               <span className="font-mono text-[10px] text-muted-foreground ml-2">
-                {editorState.active
+                {mcActive
+                  ? "mc — GNU Midnight Commander"
+                  : editorState.active
                   ? `${editorState.type === "vim" ? "vim" : "nano"} — ${editorState.fileName}`
                   : `kali@kali: ${state.cwd === "/home/kali" ? "~" : state.cwd}`
                 }
@@ -220,15 +239,17 @@ const SecurityTerminal = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-[9px] text-muted-foreground/50">
-                {editorState.active ? (editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2") : "Kali 2026.1 | bash 5.2"}
+                {mcActive ? "MC 4.8.31" : editorState.active ? (editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2") : "Kali 2026.1 | bash 5.2"}
               </span>
               <Terminal className="w-3.5 h-3.5 text-muted-foreground/40" />
             </div>
           </div>
 
-          {/* Terminal body or Editor */}
+          {/* Terminal body, Editor, or MC */}
           <div ref={scrollRef} className="h-[480px] overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-[hsl(var(--background))]">
-            {editorState.active ? (
+            {mcActive ? (
+              <MidnightCommander termState={state} onClose={handleMcClose} />
+            ) : editorState.active ? (
               <TerminalEditor
                 editor={editorState}
                 termState={state}
@@ -261,7 +282,7 @@ const SecurityTerminal = () => {
           </div>
 
           {/* Quick commands */}
-          {!editorState.active && (
+          {!editorState.active && !mcActive && (
             <div className="px-4 py-3 border-t border-border/30 bg-card/50 flex flex-wrap gap-2">
               <span className="text-[9px] text-muted-foreground/40 font-mono mr-2 self-center">Quick:</span>
               {[
@@ -269,8 +290,8 @@ const SecurityTerminal = () => {
                 { label: "nmap scan", cmd: "nmap -sV 192.168.1.0/24" },
                 { label: "vim demo", cmd: "vim /etc/os-release" },
                 { label: "nano demo", cmd: "nano /home/kali/.bashrc" },
+                { label: "mc", cmd: "mc" },
                 { label: "port scanner", cmd: "python3 port_scanner.py --target 192.168.1.0/24" },
-                { label: "wifi audit", cmd: "python3 wifi_cracker.py" },
                 { label: "help", cmd: "help" },
               ].map((q) => (
                 <button

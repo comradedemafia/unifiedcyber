@@ -265,6 +265,7 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     vi: () => ({ output: [`__EDITOR__:vim:${args.join(" ")}`] }),
     vim: () => ({ output: [`__EDITOR__:vim:${args.join(" ")}`] }),
     nano: () => ({ output: [`__EDITOR__:nano:${args.join(" ")}`] }),
+    mc: () => ({ output: ["__MC__"] }),
     sleep: () => ({ output: [] }),
     seq: () => {
       const start = parseInt(args[0]) || 1;
