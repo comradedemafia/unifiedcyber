@@ -69,13 +69,31 @@ const Navbar = () => {
           ))}
         </div>
 
-        <button
-          onClick={() => setMobileOpen((v) => !v)}
-          className="md:hidden p-2 text-muted-foreground hover:text-primary transition-colors"
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationPanel />
+          {user ? (
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-primary bg-primary/10 hover:bg-primary/20 rounded-full transition-all"
+            >
+              <LayoutDashboard className="w-3 h-3" /> Dashboard
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-primary bg-primary/10 hover:bg-primary/20 rounded-full transition-all"
+            >
+              <LogIn className="w-3 h-3" /> Login
+            </button>
+          )}
+          <button
+            onClick={() => setMobileOpen((v) => !v)}
+            className="md:hidden p-2 text-muted-foreground hover:text-primary transition-colors"
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
