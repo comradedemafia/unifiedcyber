@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
-import { Shield, Menu, X, Terminal } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Shield, Menu, X, Terminal, LogIn, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import NotificationPanel from "@/components/NotificationPanel";
 
 const navLinks = [
   { label: "Dashboard", href: "#dashboard" },
