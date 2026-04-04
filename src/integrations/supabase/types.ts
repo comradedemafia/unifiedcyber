@@ -14,7 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      blocked_ips: {
+        Row: {
+          blocked_by: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          ip_address: string
+          is_permanent: boolean
+          reason: string | null
+        }
+        Insert: {
+          blocked_by?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_address: string
+          is_permanent?: boolean
+          reason?: string | null
+        }
+        Update: {
+          blocked_by?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_address?: string
+          is_permanent?: boolean
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      firewall_logs: {
+        Row: {
+          action: string
+          created_at: string
+          destination_ip: string | null
+          id: string
+          port: number | null
+          protocol: string | null
+          rule_matched: string | null
+          source_ip: string
+          threat_type: string | null
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          destination_ip?: string | null
+          id?: string
+          port?: number | null
+          protocol?: string | null
+          rule_matched?: string | null
+          source_ip: string
+          threat_type?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          destination_ip?: string | null
+          id?: string
+          port?: number | null
+          protocol?: string | null
+          rule_matched?: string | null
+          source_ip?: string
+          threat_type?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_incidents: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          incident_type: string
+          resolved_at: string | null
+          response_actions: Json | null
+          severity: string
+          source_ip: string | null
+          status: string
+          target: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          incident_type: string
+          resolved_at?: string | null
+          response_actions?: Json | null
+          severity?: string
+          source_ip?: string | null
+          status?: string
+          target?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          incident_type?: string
+          resolved_at?: string | null
+          response_actions?: Json | null
+          severity?: string
+          source_ip?: string | null
+          status?: string
+          target?: string | null
+        }
+        Relationships: []
+      }
+      threat_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          severity: string
+          source_ip: string | null
+          status: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          severity?: string
+          source_ip?: string | null
+          status?: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          severity?: string
+          source_ip?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
