@@ -4,6 +4,7 @@ import { Shield, Menu, X, Terminal, LogIn, LayoutDashboard } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationPanel from "@/components/NotificationPanel";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const navLinks = [
   { label: "Dashboard", href: "#dashboard" },
@@ -70,6 +71,7 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <NotificationPanel />
           {user ? (
             <button
