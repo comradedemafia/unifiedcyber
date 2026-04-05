@@ -56,6 +56,56 @@
     --sidebar-border: 230 18% 15%;
     --sidebar-ring: 170 100% 45%;
   }
+
+  .light-mode {
+    --background: 220 20% 96%;
+    --foreground: 230 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 230 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 12%;
+
+    --primary: 170 100% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 90%;
+    --secondary-foreground: 230 20% 30%;
+
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 260 70% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 85% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 42 100% 45%;
+    --warning-foreground: 42 100% 10%;
+
+    --success: 155 65% 35%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 15% 85%;
+    --input: 220 15% 85%;
+    --ring: 170 100% 35%;
+
+    --glow-primary: 0 0 10px hsl(170 100% 35% / 0.15);
+    --glow-primary-strong: 0 0 15px hsl(170 100% 35% / 0.2);
+    --glow-destructive: 0 0 10px hsl(0 85% 50% / 0.15);
+    --glow-accent: 0 0 10px hsl(260 70% 55% / 0.15);
+
+    --sidebar-background: 220 15% 94%;
+    --sidebar-foreground: 230 20% 30%;
+    --sidebar-primary: 170 100% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 90%;
+    --sidebar-accent-foreground: 230 25% 12%;
+    --sidebar-border: 220 15% 85%;
+    --sidebar-ring: 170 100% 35%;
+  }
 }
 
 @layer base {
@@ -148,12 +198,12 @@
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(230 25% 5%);
+  background: hsl(var(--background));
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(230 18% 20%);
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(170 100% 45% / 0.4);
+  background: hsl(var(--primary) / 0.4);
 }

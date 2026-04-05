@@ -4,12 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import {
   Shield, AlertTriangle, CheckCircle2, Activity, Globe, Lock,
-  LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock
+  LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock, Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationPanel from "@/components/NotificationPanel";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -80,8 +81,12 @@ const Dashboard = () => {
             <span className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">UCSF Dashboard</span>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationPanel />
             <span className="text-xs text-muted-foreground font-mono hidden sm:block">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/siem")} className="text-xs font-mono gap-1">
+              <Eye className="w-3 h-3" /> SIEM
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs font-mono gap-1">
               <Globe className="w-3 h-3" /> Home
             </Button>
