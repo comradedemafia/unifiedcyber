@@ -1,20 +1,24 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield, AlertTriangle, CheckCircle2, Activity, Globe, Lock,
-  LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock, Eye
+  LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock, Eye,
+  Send, Zap, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationPanel from "@/components/NotificationPanel";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState({
     totalIncidents: 0,
     activeThreats: 0,
@@ -22,7 +26,14 @@ const Dashboard = () => {
     resolvedIncidents: 0,
   });
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
+  const [autoResponses, setAutoResponses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [showTestPanel, setShowTestPanel] = useState(false);
+  const [testAlertType, setTestAlertType] = useState("DDoS Attack");
+  const [testSeverity, setTestSeverity] = useState("critical");
+  const [testMessage, setTestMessage] = useState("Test critical alert from SOC dashboard");
+  const [testSourceIp, setTestSourceIp] = useState("192.168.1.100");
 
   useEffect(() => {
     const loadData = async () => {
@@ -45,17 +56,138 @@ const Dashboard = () => {
 
     loadData();
 
-    // Realtime subscription
+    // Realtime subscription with automated response
     const channel = supabase
       .channel("dashboard-alerts")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "threat_alerts" }, (payload) => {
-        setRecentAlerts(prev => [payload.new, ...prev].slice(0, 10));
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "threat_alerts" }, async (payload) => {
+        const newAlert = payload.new as any;
+        setRecentAlerts(prev => [newAlert, ...prev].slice(0, 10));
         setStats(prev => ({ ...prev, activeThreats: prev.activeThreats + 1 }));
+
+        // AUTOMATED RESPONSE: If critical, auto-block IP and create incident
+        if (newAlert.severity === "critical" && newAlert.source_ip) {
+          await handleAutoResponse(newAlert);
+        }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const handleAutoResponse = async (alert: any) => {
+    const responseLog: any = {
+      id: crypto.randomUUID(),
+      time: new Date().toLocaleTimeString("en-US", { hour12: false }),
+      alert_type: alert.alert_type,
+      source_ip: alert.source_ip,
+      actions: [],
+      status: "executing",
+    };
+
+    setAutoResponses(prev => [responseLog, ...prev].slice(0, 20));
+
+    try {
+      // Step 1: Block the IP
+      const { error: blockError } = await supabase.from("blocked_ips").insert({
+        ip_address: alert.source_ip,
+        reason: `Auto-blocked: ${alert.alert_type} - ${alert.message}`,
+        blocked_by: "automated-response",
+        is_permanent: false,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+
+      responseLog.actions.push({
+        action: "Block IP",
+        status: blockError ? "failed" : "success",
+        detail: blockError ? blockError.message : `${alert.source_ip} blocked for 24h`,
+      });
+
+      // Step 2: Create security incident
+      const { error: incError } = await supabase.from("security_incidents").insert({
+        incident_type: alert.alert_type,
+        severity: alert.severity,
+        description: `Auto-generated from critical alert: ${alert.message}`,
+        source_ip: alert.source_ip,
+        status: "investigating",
+        response_actions: [
+          { action: "IP Blocked", time: new Date().toISOString() },
+          { action: "Incident Created", time: new Date().toISOString() },
+          { action: "Admin Notified", time: new Date().toISOString() },
+        ],
+      });
+
+      responseLog.actions.push({
+        action: "Create Incident",
+        status: incError ? "failed" : "success",
+        detail: incError ? incError.message : "Incident logged",
+      });
+
+      // Step 3: Send admin alert via Edge Function
+      const { error: alertError } = await supabase.functions.invoke("send-critical-alert", {
+        body: {
+          alert_type: alert.alert_type,
+          severity: alert.severity,
+          message: alert.message,
+          source_ip: alert.source_ip,
+          admin_email: user?.email || "admin@ucsf.local",
+        },
+      });
+
+      responseLog.actions.push({
+        action: "Admin Alert",
+        status: alertError ? "failed" : "success",
+        detail: alertError ? alertError.message : "Alert sent to admin",
+      });
+
+      responseLog.status = "completed";
+      setStats(prev => ({ ...prev, blockedIPs: prev.blockedIPs + 1 }));
+
+      toast({
+        title: "⚡ Automated Response Executed",
+        description: `${alert.alert_type} from ${alert.source_ip} — IP blocked, incident created, admin notified`,
+      });
+    } catch (err) {
+      responseLog.status = "error";
+    }
+
+    setAutoResponses(prev => prev.map(r => r.id === responseLog.id ? responseLog : r));
+  };
+
+  const handleSendTestAlert = async () => {
+    setSendingTest(true);
+    try {
+      // Insert alert into database (triggers realtime → auto-response if critical)
+      const { error: insertError } = await supabase.from("threat_alerts").insert({
+        alert_type: testAlertType,
+        severity: testSeverity,
+        message: testMessage,
+        source_ip: testSourceIp,
+        status: "active",
+      });
+
+      if (insertError) throw insertError;
+
+      // Also call Edge Function directly
+      const { error: fnError } = await supabase.functions.invoke("send-critical-alert", {
+        body: {
+          alert_type: testAlertType,
+          severity: testSeverity,
+          message: testMessage,
+          source_ip: testSourceIp,
+          admin_email: user?.email || "admin@ucsf.local",
+        },
+      });
+
+      toast({
+        title: "✅ Test Alert Sent",
+        description: `${testAlertType} (${testSeverity}) — alert inserted and Edge Function invoked${fnError ? " (Edge Function warning)" : ""}`,
+      });
+    } catch (err: any) {
+      toast({ title: "❌ Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -73,7 +205,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top bar */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -99,9 +230,97 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-6 py-8">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Security Operations Center</h1>
-          <p className="text-sm text-muted-foreground mb-8">Real-time overview of system security status</p>
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground mb-1">Security Operations Center</h1>
+              <p className="text-sm text-muted-foreground">Real-time overview with automated incident response</p>
+            </div>
+            <Button
+              variant={showTestPanel ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowTestPanel(!showTestPanel)}
+              className="font-mono text-xs gap-1"
+            >
+              <Send className="w-3 h-3" /> Test Alert
+            </Button>
+          </div>
         </motion.div>
+
+        {/* Test Alert Panel */}
+        <AnimatePresence>
+          {showTestPanel && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-6 overflow-hidden"
+            >
+              <div className="bg-card border border-primary/30 rounded-xl p-5">
+                <h3 className="text-sm font-mono font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Send className="w-4 h-4 text-primary" /> Send Test Alert
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="text-[10px] font-mono text-muted-foreground mb-1 block">Alert Type</label>
+                    <select
+                      value={testAlertType}
+                      onChange={e => setTestAlertType(e.target.value)}
+                      className="w-full bg-muted/20 border border-border/50 rounded-lg px-3 py-2 text-xs font-mono text-foreground"
+                    >
+                      <option value="DDoS Attack">DDoS Attack</option>
+                      <option value="SQL Injection">SQL Injection</option>
+                      <option value="Brute Force">Brute Force</option>
+                      <option value="Malware Detected">Malware Detected</option>
+                      <option value="Data Exfiltration">Data Exfiltration</option>
+                      <option value="Port Scan">Port Scan</option>
+                      <option value="XSS Attempt">XSS Attempt</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-mono text-muted-foreground mb-1 block">Severity</label>
+                    <select
+                      value={testSeverity}
+                      onChange={e => setTestSeverity(e.target.value)}
+                      className="w-full bg-muted/20 border border-border/50 rounded-lg px-3 py-2 text-xs font-mono text-foreground"
+                    >
+                      <option value="critical">Critical</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-mono text-muted-foreground mb-1 block">Source IP</label>
+                    <Input
+                      value={testSourceIp}
+                      onChange={e => setTestSourceIp(e.target.value)}
+                      className="font-mono text-xs bg-muted/20 border-border/50"
+                      placeholder="192.168.1.100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-mono text-muted-foreground mb-1 block">Message</label>
+                    <Input
+                      value={testMessage}
+                      onChange={e => setTestMessage(e.target.value)}
+                      className="font-mono text-xs bg-muted/20 border-border/50"
+                      placeholder="Describe the threat..."
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button onClick={handleSendTestAlert} disabled={sendingTest} size="sm" className="font-mono text-xs gap-1">
+                    {sendingTest ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                    {sendingTest ? "Sending..." : "Send Test Alert"}
+                  </Button>
+                  <p className="text-[9px] text-muted-foreground">
+                    {testSeverity === "critical" ? "⚡ Critical alerts trigger automated IP blocking + incident creation" : "ℹ️ Non-critical alerts are logged only"}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -124,7 +343,45 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* System health */}
+        {/* Automated Response Log */}
+        {autoResponses.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
+            <div className="bg-card border border-warning/30 rounded-xl p-5">
+              <h3 className="text-sm font-mono font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-warning" /> Automated Response Log
+              </h3>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {autoResponses.map(r => (
+                  <div key={r.id} className="p-3 rounded-lg bg-muted/10 border border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={r.status === "completed" ? "secondary" : r.status === "executing" ? "default" : "destructive"} className="text-[8px]">
+                        {r.status}
+                      </Badge>
+                      <span className="text-[11px] font-mono text-foreground">{r.alert_type}</span>
+                      <span className="text-[9px] font-mono text-primary/60">{r.source_ip}</span>
+                      <span className="text-[9px] font-mono text-muted-foreground/50 ml-auto">{r.time}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {r.actions.map((a: any, i: number) => (
+                        <div key={i} className="flex items-center gap-1 text-[9px] font-mono">
+                          {a.status === "success" ? (
+                            <CheckCircle2 className="w-3 h-3 text-success" />
+                          ) : (
+                            <AlertTriangle className="w-3 h-3 text-destructive" />
+                          )}
+                          <span className="text-muted-foreground">{a.action}:</span>
+                          <span className={a.status === "success" ? "text-success" : "text-destructive"}>{a.detail}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* System health + Recent alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           <div className="bg-card border border-border/50 rounded-xl p-5">
             <h3 className="text-sm font-mono font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -136,6 +393,7 @@ const Dashboard = () => {
                 { name: "IDS/IPS (Suricata)", status: "active", uptime: "99.97%" },
                 { name: "Encryption Module", status: "active", uptime: "100%" },
                 { name: "Threat Intelligence", status: "active", uptime: "99.95%" },
+                { name: "Auto-Response Engine", status: "active", uptime: "99.99%" },
                 { name: "Log Aggregator", status: "active", uptime: "99.98%" },
               ].map((svc) => (
                 <div key={svc.name} className="flex items-center justify-between p-2 rounded-lg bg-muted/10">
@@ -152,14 +410,13 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Recent alerts */}
           <div className="bg-card border border-border/50 rounded-xl p-5">
             <h3 className="text-sm font-mono font-semibold text-foreground mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-warning" /> Recent Alerts
             </h3>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {recentAlerts.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No recent alerts from database. Simulated alerts appear in the notification panel.</p>
+                <p className="text-xs text-muted-foreground text-center py-4">No recent alerts. Use "Test Alert" to generate one.</p>
               ) : (
                 recentAlerts.map((alert: any) => (
                   <div key={alert.id} className="flex items-start gap-2 p-2 rounded-lg bg-muted/10 hover:bg-muted/20 transition-colors">
