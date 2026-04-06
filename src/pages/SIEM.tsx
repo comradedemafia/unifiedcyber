@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationPanel from "@/components/NotificationPanel";
+import GeoThreatMap from "@/components/GeoThreatMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const SIEM = () => {
@@ -148,6 +149,11 @@ const SIEM = () => {
               </Button>
             ))}
           </div>
+        </div>
+
+        {/* GeoIP Threat Map */}
+        <div className="mb-6">
+          <GeoThreatMap events={allEvents} />
         </div>
 
         <Tabs defaultValue="unified" className="space-y-4">
