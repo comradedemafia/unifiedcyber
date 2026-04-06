@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import {
   Shield, AlertTriangle, Activity, Globe, Lock, LogOut, Flame, Ban,
-  CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp
+  CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import NotificationPanel from "@/components/NotificationPanel";
 import GeoThreatMap from "@/components/GeoThreatMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { exportSIEMReport } from "@/utils/exportSIEMReport";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
@@ -109,9 +110,14 @@ const SIEM = () => {
               <h1 className="text-2xl font-bold text-foreground mb-1">Security Information & Event Management</h1>
               <p className="text-sm text-muted-foreground">Unified view of all security events across all systems</p>
             </div>
-            <Button variant="outline" size="sm" onClick={loadData} className="font-mono text-xs gap-1">
-              <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => exportSIEMReport(allEvents, blockedIps, stats)} className="font-mono text-xs gap-1">
+                <FileDown className="w-3 h-3" /> Export PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={loadData} className="font-mono text-xs gap-1">
+                <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> Refresh
+              </Button>
+            </div>
           </div>
         </motion.div>
 
