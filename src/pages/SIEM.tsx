@@ -326,6 +326,16 @@ const SIEM = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {selectedIncident && (
+          <IncidentDetail
+            incident={selectedIncident}
+            onClose={() => setSelectedIncident(null)}
+            relatedAlerts={alerts.filter(a => a.source_ip === selectedIncident.source_ip)}
+            relatedFirewall={firewallLogs.filter(f => f.source_ip === selectedIncident.source_ip)}
+            blockedIps={blockedIps}
+          />
+        )}
       </main>
     </div>
   );
