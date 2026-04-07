@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import {
   Shield, AlertTriangle, Activity, Globe, Lock, LogOut, Flame, Ban,
-  CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown
+  CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import NotificationPanel from "@/components/NotificationPanel";
 import GeoThreatMap from "@/components/GeoThreatMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportSIEMReport } from "@/utils/exportSIEMReport";
+import IncidentDetail from "@/components/IncidentDetail";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
@@ -25,6 +26,7 @@ const SIEM = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [selectedIncident, setSelectedIncident] = useState<any>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -271,7 +273,7 @@ const SIEM = () => {
               </div>
               <div className="max-h-[600px] overflow-y-auto divide-y divide-border/30">
                 {incidents.map(inc => (
-                  <div key={inc.id} className="p-3 hover:bg-muted/10 transition-colors">
+                  <div key={inc.id} className="p-3 hover:bg-muted/10 transition-colors cursor-pointer" onClick={() => setSelectedIncident(inc)}>
                     <div className="flex items-start gap-3">
                       <Flame className={`w-3.5 h-3.5 mt-0.5 ${sevColor(inc.severity)}`} />
                       <div className="flex-1 min-w-0">
@@ -279,6 +281,7 @@ const SIEM = () => {
                           <span className="text-[11px] font-mono text-foreground">{inc.incident_type}</span>
                           <Badge variant={inc.severity === "critical" ? "destructive" : "secondary"} className="text-[8px]">{inc.severity}</Badge>
                           <Badge variant={inc.status === "resolved" ? "secondary" : "destructive"} className="text-[8px]">{inc.status}</Badge>
+                          <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
                         </div>
                         <p className="text-[10px] text-muted-foreground">{inc.description}</p>
                         <div className="flex items-center gap-3 mt-1">
@@ -323,6 +326,16 @@ const SIEM = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {selectedIncident && (
+          <IncidentDetail
+            incident={selectedIncident}
+            onClose={() => setSelectedIncident(null)}
+            relatedAlerts={alerts.filter(a => a.source_ip === selectedIncident.source_ip)}
+            relatedFirewall={firewallLogs.filter(f => f.source_ip === selectedIncident.source_ip)}
+            blockedIps={blockedIps}
+          />
+        )}
       </main>
     </div>
   );
