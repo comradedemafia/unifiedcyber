@@ -14,6 +14,7 @@ import NotificationPanel from "@/components/NotificationPanel";
 import GeoThreatMap from "@/components/GeoThreatMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportSIEMReport } from "@/utils/exportSIEMReport";
+import IncidentDetail from "@/components/IncidentDetail";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
@@ -25,6 +26,7 @@ const SIEM = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [selectedIncident, setSelectedIncident] = useState<any>(null);
 
   const loadData = async () => {
     setLoading(true);
