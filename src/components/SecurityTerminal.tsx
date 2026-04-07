@@ -1,45 +1,73 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Terminal } from "lucide-react";
+import { Terminal, X, Minus, Square, Menu, Plus, Search, ChevronDown } from "lucide-react";
 import { createFileSystem, FSNode } from "./terminal/kaliFileSystem";
 import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
 import TerminalEditor from "./terminal/TerminalEditor";
 import MidnightCommander from "./terminal/MidnightCommander";
 
-const SecurityTerminal = () => {
-  const [state, setState] = useState<TerminalState>(() => ({
-    cwd: "/home/kali",
-    fs: createFileSystem(),
-    env: {
-      HOME: "/home/kali",
-      USER: "kali",
-      SHELL: "/bin/bash",
-      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-      TERM: "xterm-256color",
-      LANG: "en_US.UTF-8",
-      HOSTNAME: "kali",
-      LOGNAME: "kali",
-      PWD: "/home/kali",
-      EDITOR: "nano",
-    },
-    history: [],
-    user: "kali",
-    hostname: "kali",
-  }));
+interface TerminalTab {
+  id: number;
+  title: string;
+  lines: { text: string; type: "input" | "output" | "system" }[];
+  state: TerminalState;
+  editorState: EditorState;
+  mcActive: boolean;
+  historyIndex: number;
+}
 
-  const [lines, setLines] = useState<{ text: string; type: "input" | "output" | "system" }[]>([
-    { text: "┌──(kali㉿kali)-[~]", type: "system" },
-    { text: "└─$ Kali GNU/Linux Rolling 2026.1 — UCSF Security Terminal", type: "system" },
-    { text: 'Type "help" for available commands', type: "system" },
-    { text: "", type: "system" },
+const createInitialState = (): TerminalState => ({
+  cwd: "/home/kali",
+  fs: createFileSystem(),
+  env: {
+    HOME: "/home/kali",
+    USER: "kali",
+    SHELL: "/bin/bash",
+    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    TERM: "xterm-256color",
+    LANG: "en_US.UTF-8",
+    HOSTNAME: "kali",
+    LOGNAME: "kali",
+    PWD: "/home/kali",
+    EDITOR: "nano",
+  },
+  history: [],
+  user: "kali",
+  hostname: "kali",
+});
+
+const initialLines = (): { text: string; type: "input" | "output" | "system" }[] => [
+  { text: "┌──(kali㉿kali)-[~]", type: "system" },
+  { text: "└─$ Kali GNU/Linux Rolling 2026.1 — GNOME Terminal", type: "system" },
+  { text: 'Type "help" for available commands', type: "system" },
+  { text: "", type: "system" },
+];
+
+let tabCounter = 1;
+
+const SecurityTerminal = () => {
+  const [tabs, setTabs] = useState<TerminalTab[]>([
+    {
+      id: 1,
+      title: "kali@kali: ~",
+      lines: initialLines(),
+      state: createInitialState(),
+      editorState: createEditorState(),
+      mcActive: false,
+      historyIndex: -1,
+    },
   ]);
+  const [activeTabId, setActiveTabId] = useState(1);
   const [input, setInput] = useState("");
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [editorState, setEditorState] = useState<EditorState>(createEditorState());
-  const [mcActive, setMcActive] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -47,150 +75,242 @@ const SecurityTerminal = () => {
     }
   }, []);
 
-  useEffect(scrollToBottom, [lines, scrollToBottom]);
+  useEffect(scrollToBottom, [activeTab?.lines, scrollToBottom]);
 
-  const getPrompt = useCallback(() => {
-    const dir = state.cwd === "/home/kali" ? "~" : state.cwd.replace("/home/kali", "~");
-    return `┌──(${state.user}㉿${state.hostname})-[${dir}]`;
-  }, [state.cwd, state.user, state.hostname]);
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
 
-  const processCommand = useCallback((cmd: string) => {
-    const result = executeCommand(cmd, state);
+  const updateActiveTab = useCallback(
+    (updater: (tab: TerminalTab) => Partial<TerminalTab>) => {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === activeTabId ? { ...t, ...updater(t) } : t))
+      );
+    },
+    [activeTabId]
+  );
 
-    // Check for editor signal
-    if (result.output.length === 1 && result.output[0].startsWith("__EDITOR__:")) {
-      const parts = result.output[0].split(":");
-      const editorType = parts[1] as EditorType;
-      const editorArgs = parts.slice(2).join(":").split(" ").filter(Boolean);
-      const newEditor = openEditor(editorType, editorArgs, state);
-      if (newEditor) {
-        setEditorState(newEditor);
-        setState(prev => ({ ...prev, history: [...prev.history, cmd] }));
+  const getPrompt = useCallback(
+    (st: TerminalState) => {
+      const dir = st.cwd === "/home/kali" ? "~" : st.cwd.replace("/home/kali", "~");
+      return `┌──(${st.user}㉿${st.hostname})-[${dir}]`;
+    },
+    []
+  );
+
+  const getTabTitle = (st: TerminalState) => {
+    const dir = st.cwd === "/home/kali" ? "~" : st.cwd.split("/").pop() || "/";
+    return `${st.user}@${st.hostname}: ${dir}`;
+  };
+
+  const processCommand = useCallback(
+    (cmd: string) => {
+      const tab = tabs.find((t) => t.id === activeTabId);
+      if (!tab) return;
+      const result = executeCommand(cmd, tab.state);
+
+      if (result.output.length === 1 && result.output[0].startsWith("__EDITOR__:")) {
+        const parts = result.output[0].split(":");
+        const editorType = parts[1] as EditorType;
+        const editorArgs = parts.slice(2).join(":").split(" ").filter(Boolean);
+        const newEditor = openEditor(editorType, editorArgs, tab.state);
+        if (newEditor) {
+          updateActiveTab((t) => ({
+            editorState: newEditor,
+            state: { ...t.state, history: [...t.state.history, cmd] },
+          }));
+          return;
+        }
+        updateActiveTab((t) => ({
+          lines: [
+            ...t.lines,
+            { text: `${editorType}: "${editorArgs[0]}": Is a directory`, type: "output" as const },
+            { text: "", type: "system" as const },
+          ],
+          state: { ...t.state, history: [...t.state.history, cmd] },
+        }));
         return;
       }
-      // If null, it's a directory error
-      setLines(prev => [
-        ...prev,
-        { text: `${editorType}: "${editorArgs[0]}": Is a directory`, type: "output" },
-        { text: "", type: "system" },
-      ]);
-      setState(prev => ({ ...prev, history: [...prev.history, cmd] }));
-      return;
-    }
 
-    // Handle MC
-    if (result.output.length === 1 && result.output[0] === "__MC__") {
-      setMcActive(true);
-      setState(prev => ({ ...prev, history: [...prev.history, cmd] }));
-      return;
-    }
+      if (result.output.length === 1 && result.output[0] === "__MC__") {
+        updateActiveTab((t) => ({
+          mcActive: true,
+          state: { ...t.state, history: [...t.state.history, cmd] },
+        }));
+        return;
+      }
 
-    // Handle clear
-    if (result.output.length === 1 && result.output[0] === "__CLEAR__") {
-      setLines([]);
-      setState(prev => ({ ...prev, history: [...prev.history, cmd], ...result.newState }));
-      return;
-    }
+      if (result.output.length === 1 && result.output[0] === "__CLEAR__") {
+        updateActiveTab((t) => ({
+          lines: [],
+          state: { ...t.state, history: [...t.state.history, cmd], ...result.newState },
+        }));
+        return;
+      }
 
-    // Add output
-    setLines(prev => [
-      ...prev,
-      ...result.output.map(text => ({ text, type: "output" as const })),
-      { text: "", type: "system" as const },
-    ]);
-
-    setState(prev => ({
-      ...prev,
-      history: [...prev.history, cmd],
-      env: { ...prev.env, PWD: result.newState?.cwd || prev.cwd },
-      ...result.newState,
-    }));
-  }, [state]);
+      updateActiveTab((t) => {
+        const newState = {
+          ...t.state,
+          history: [...t.state.history, cmd],
+          env: { ...t.state.env, PWD: result.newState?.cwd || t.state.cwd },
+          ...result.newState,
+        };
+        return {
+          lines: [
+            ...t.lines,
+            ...result.output.map((text) => ({ text, type: "output" as const })),
+            { text: "", type: "system" as const },
+          ],
+          state: newState,
+          title: getTabTitle(newState),
+        };
+      });
+    },
+    [tabs, activeTabId, updateActiveTab]
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) {
-      setLines(prev => [...prev, { text: getPrompt(), type: "system" }, { text: `└─$ `, type: "input" }]);
+      updateActiveTab((t) => ({
+        lines: [
+          ...t.lines,
+          { text: getPrompt(t.state), type: "system" as const },
+          { text: `└─$ `, type: "input" as const },
+        ],
+      }));
       return;
     }
-
     const cmd = input.trim();
     setInput("");
-    setHistoryIndex(-1);
-
-    setLines(prev => [
-      ...prev,
-      { text: getPrompt(), type: "system" },
-      { text: `└─$ ${cmd}`, type: "input" },
-    ]);
-
+    updateActiveTab((t) => ({
+      lines: [
+        ...t.lines,
+        { text: getPrompt(t.state), type: "system" as const },
+        { text: `└─$ ${cmd}`, type: "input" as const },
+      ],
+      historyIndex: -1,
+    }));
     processCommand(cmd);
   };
 
-  const handleEditorClose = useCallback((message: string, newFs?: Record<string, FSNode>) => {
-    setEditorState(createEditorState());
-    if (newFs) {
-      setState(prev => ({ ...prev, fs: newFs }));
-    }
-    if (message) {
-      setLines(prev => [...prev, { text: message, type: "output" }, { text: "", type: "system" }]);
-    }
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, []);
+  const handleEditorClose = useCallback(
+    (message: string, newFs?: Record<string, FSNode>) => {
+      updateActiveTab((t) => ({
+        editorState: createEditorState(),
+        ...(newFs ? { state: { ...t.state, fs: newFs } } : {}),
+        ...(message
+          ? {
+              lines: [
+                ...t.lines,
+                { text: message, type: "output" as const },
+                { text: "", type: "system" as const },
+              ],
+            }
+          : {}),
+      }));
+      setTimeout(() => inputRef.current?.focus(), 50);
+    },
+    [updateActiveTab]
+  );
 
-  const handleMcClose = useCallback((newCwd?: string) => {
-    setMcActive(false);
-    if (newCwd) {
-      setState(prev => ({ ...prev, cwd: newCwd, env: { ...prev.env, PWD: newCwd } }));
-    }
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, []);
+  const handleMcClose = useCallback(
+    (newCwd?: string) => {
+      updateActiveTab((t) => ({
+        mcActive: false,
+        ...(newCwd
+          ? { state: { ...t.state, cwd: newCwd, env: { ...t.state.env, PWD: newCwd } } }
+          : {}),
+      }));
+      setTimeout(() => inputRef.current?.focus(), 50);
+    },
+    [updateActiveTab]
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (state.history.length === 0) return;
-      const newIdx = historyIndex < 0 ? state.history.length - 1 : Math.max(0, historyIndex - 1);
-      setHistoryIndex(newIdx);
-      setInput(state.history[newIdx]);
+      if (activeTab.state.history.length === 0) return;
+      const newIdx =
+        activeTab.historyIndex < 0
+          ? activeTab.state.history.length - 1
+          : Math.max(0, activeTab.historyIndex - 1);
+      updateActiveTab(() => ({ historyIndex: newIdx }));
+      setInput(activeTab.state.history[newIdx]);
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (historyIndex < 0) return;
-      const newIdx = historyIndex + 1;
-      if (newIdx >= state.history.length) {
-        setHistoryIndex(-1);
+      if (activeTab.historyIndex < 0) return;
+      const newIdx = activeTab.historyIndex + 1;
+      if (newIdx >= activeTab.state.history.length) {
+        updateActiveTab(() => ({ historyIndex: -1 }));
         setInput("");
       } else {
-        setHistoryIndex(newIdx);
-        setInput(state.history[newIdx]);
+        updateActiveTab(() => ({ historyIndex: newIdx }));
+        setInput(activeTab.state.history[newIdx]);
       }
     } else if (e.key === "Tab") {
       e.preventDefault();
       const partial = input.trim();
       if (!partial) return;
-      const cmds = ["ls", "cd", "pwd", "cat", "echo", "whoami", "uname", "ifconfig", "ping", "nmap", "python3", "help", "clear", "history", "grep", "find", "mkdir", "touch", "rm", "head", "tail", "neofetch", "msfconsole", "hydra", "sqlmap", "iptables", "systemctl", "ps", "top", "df", "free", "netstat", "curl", "wget", "apt", "git", "vim", "nano", "vi", "mc"];
-      const matches = cmds.filter(c => c.startsWith(partial));
+      const cmds = [
+        "ls", "cd", "pwd", "cat", "echo", "whoami", "uname", "ifconfig", "ping",
+        "nmap", "python3", "help", "clear", "history", "grep", "find", "mkdir",
+        "touch", "rm", "head", "tail", "neofetch", "msfconsole", "hydra", "sqlmap",
+        "iptables", "systemctl", "ps", "top", "df", "free", "netstat", "curl",
+        "wget", "apt", "git", "vim", "nano", "vi", "mc",
+      ];
+      const matches = cmds.filter((c) => c.startsWith(partial));
       if (matches.length === 1) setInput(matches[0] + " ");
       else if (matches.length > 1) {
-        setLines(prev => [...prev, { text: matches.join("  "), type: "output" }]);
+        updateActiveTab((t) => ({
+          lines: [...t.lines, { text: matches.join("  "), type: "output" as const }],
+        }));
       }
     }
   };
 
+  const addTab = () => {
+    tabCounter++;
+    const newTab: TerminalTab = {
+      id: tabCounter,
+      title: "kali@kali: ~",
+      lines: initialLines(),
+      state: createInitialState(),
+      editorState: createEditorState(),
+      mcActive: false,
+      historyIndex: -1,
+    };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(tabCounter);
+    setInput("");
+  };
+
+  const closeTab = (id: number) => {
+    if (tabs.length <= 1) return;
+    const newTabs = tabs.filter((t) => t.id !== id);
+    setTabs(newTabs);
+    if (activeTabId === id) {
+      setActiveTabId(newTabs[newTabs.length - 1].id);
+    }
+    setInput("");
+  };
+
   const getLineColor = (line: { text: string; type: string }) => {
     const t = line.text;
-    if (line.type === "input") return "text-foreground";
-    if (t.startsWith("┌──(") || t.startsWith("└─$")) return "text-primary";
-    if (line.type === "system") return "text-muted-foreground/60";
-    if (t.includes("\x1b[1;34m")) return "text-primary";
-    if (t.includes("\x1b[1;32m")) return "text-success";
-    if (t.startsWith("[!]") || t.includes("CRITICAL") || t.includes("⚠️") || t.includes("DENY") || t.includes("DROP")) return "text-destructive";
-    if (t.startsWith("[✓]") || t.includes("[+]") || t.includes("ALLOW") || t.includes("ACCEPT")) return "text-success";
-    if (t.startsWith("[*]")) return "text-primary/80";
-    if (t.includes("HIGH") || t.includes("WARNING")) return "text-warning";
-    if (t.includes("VULN-")) return "text-warning";
-    if (t.startsWith("    └──") || t.startsWith("    ├──")) return "text-muted-foreground/80";
-    return "text-foreground/70";
+    if (line.type === "input") return "text-[#d3d7cf]";
+    if (t.startsWith("┌──(") || t.startsWith("└─$")) return "text-[#48b9c7]";
+    if (line.type === "system") return "text-[#888a85]";
+    if (t.includes("\x1b[1;34m")) return "text-[#729fcf]";
+    if (t.includes("\x1b[1;32m")) return "text-[#8ae234]";
+    if (t.startsWith("[!]") || t.includes("CRITICAL") || t.includes("⚠️") || t.includes("DENY") || t.includes("DROP"))
+      return "text-[#ef2929]";
+    if (t.startsWith("[✓]") || t.includes("[+]") || t.includes("ALLOW") || t.includes("ACCEPT"))
+      return "text-[#8ae234]";
+    if (t.startsWith("[*]")) return "text-[#729fcf]";
+    if (t.includes("HIGH") || t.includes("WARNING")) return "text-[#fce94f]";
+    if (t.includes("VULN-")) return "text-[#fcaf3e]";
+    if (t.startsWith("    └──") || t.startsWith("    ├──")) return "text-[#888a85]";
+    return "text-[#d3d7cf]";
   };
 
   const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
@@ -199,17 +319,24 @@ const SecurityTerminal = () => {
     <section id="terminal" className="py-24 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-card/20 to-transparent" />
       <div className="container mx-auto px-6 relative">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-16"
+        >
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
-            <span className="font-mono text-[10px] tracking-[0.3em] text-primary/60 uppercase">Kali Linux 2026.1</span>
+            <span className="font-mono text-[10px] tracking-[0.3em] text-primary/60 uppercase">
+              Kali Linux 2026.1
+            </span>
             <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
           </div>
           <h2 className="text-4xl md:text-5xl font-display font-bold text-foreground text-center mb-4 tracking-tight">
             Security <span className="text-primary text-glow">Terminal</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto text-center">
-            Fully interactive Kali Linux terminal with vim/nano editors. Run real commands — ls, cat, nmap, vim, nano, and more.
+            GNOME Terminal — Kali Linux 2026.1. Fully interactive with tabs, vim/nano editors, and 150+ commands.
           </p>
         </motion.div>
 
@@ -217,101 +344,273 @@ const SecurityTerminal = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-4xl mx-auto rounded-xl border border-border/60 bg-background overflow-hidden shadow-2xl"
-           onClick={() => !editorState.active && !mcActive && inputRef.current?.focus()}
+          className="max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-[#1a1a2e]/60"
+          onClick={() =>
+            !activeTab.editorState.active && !activeTab.mcActive && inputRef.current?.focus()
+          }
         >
-          {/* Title bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 bg-card border-b border-border/40">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-destructive/60" />
-                <div className="w-3 h-3 rounded-full bg-warning/60" />
-                <div className="w-3 h-3 rounded-full bg-success/60" />
-              </div>
-              <span className="font-mono text-[10px] text-muted-foreground ml-2">
-                {mcActive
-                  ? "mc — GNU Midnight Commander"
-                  : editorState.active
-                  ? `${editorState.type === "vim" ? "vim" : "nano"} — ${editorState.fileName}`
-                  : `kali@kali: ${state.cwd === "/home/kali" ? "~" : state.cwd}`
-                }
-              </span>
+          {/* GNOME Header Bar */}
+          <div className="flex items-center bg-[#2d2d2d] h-[38px] select-none">
+            {/* Left: Hamburger menu */}
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(!menuOpen);
+                }}
+                className="h-[38px] px-3 hover:bg-[#3d3d3d] transition-colors flex items-center"
+              >
+                <Menu className="w-4 h-4 text-[#ccc]" />
+              </button>
+              {menuOpen && (
+                <div className="absolute top-[38px] left-0 bg-[#3d3d3d] border border-[#555] rounded-b-md shadow-xl z-50 min-w-[200px] py-1">
+                  {[
+                    { label: "New Tab", shortcut: "Ctrl+Shift+T", action: addTab },
+                    { label: "New Window", shortcut: "Ctrl+Shift+N", action: () => {} },
+                    null,
+                    {
+                      label: "Find…",
+                      shortcut: "Ctrl+Shift+F",
+                      action: () => {
+                        setSearchOpen(true);
+                        setMenuOpen(false);
+                      },
+                    },
+                    null,
+                    { label: "Read-Only", shortcut: "", action: () => {} },
+                    null,
+                    { label: "Preferences", shortcut: "", action: () => {} },
+                    { label: "Help", shortcut: "", action: () => {} },
+                    { label: "About", shortcut: "", action: () => {} },
+                  ].map((item, i) =>
+                    item === null ? (
+                      <div key={i} className="h-px bg-[#555] my-1" />
+                    ) : (
+                      <button
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          item.action();
+                          setMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-1.5 text-[13px] text-[#ddd] hover:bg-[#505050] flex justify-between items-center"
+                      >
+                        <span>{item.label}</span>
+                        {item.shortcut && (
+                          <span className="text-[11px] text-[#999] ml-6">{item.shortcut}</span>
+                        )}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[9px] text-muted-foreground/50">
-                {mcActive ? "MC 4.8.31" : editorState.active ? (editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2") : "Kali 2026.1 | bash 5.2"}
-              </span>
-              <Terminal className="w-3.5 h-3.5 text-muted-foreground/40" />
+
+            {/* Tabs */}
+            <div className="flex-1 flex items-end h-full overflow-x-auto">
+              {tabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTabId(tab.id);
+                    setInput("");
+                  }}
+                  className={`group relative flex items-center gap-2 h-full px-4 cursor-pointer text-[12px] font-sans min-w-[120px] max-w-[200px] transition-colors ${
+                    tab.id === activeTabId
+                      ? "bg-[#1a1b26] text-[#fff]"
+                      : "bg-[#2d2d2d] text-[#999] hover:bg-[#383838] hover:text-[#bbb]"
+                  }`}
+                >
+                  <Terminal className="w-3 h-3 shrink-0 opacity-60" />
+                  <span className="truncate">{tab.title}</span>
+                  {tabs.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeTab(tab.id);
+                      }}
+                      className="ml-auto opacity-0 group-hover:opacity-100 hover:bg-[#555] rounded p-0.5 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {/* New tab button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addTab();
+                }}
+                className="h-full px-3 hover:bg-[#383838] transition-colors flex items-center"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#999]" />
+              </button>
+            </div>
+
+            {/* Right: Search + Window controls */}
+            <div className="flex items-center">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchOpen(!searchOpen);
+                }}
+                className="h-[38px] px-3 hover:bg-[#3d3d3d] transition-colors flex items-center"
+              >
+                <Search className="w-3.5 h-3.5 text-[#999]" />
+              </button>
+              <div className="w-px h-4 bg-[#444]" />
+              <button className="h-[38px] px-3 hover:bg-[#3d3d3d] transition-colors flex items-center">
+                <Minus className="w-3.5 h-3.5 text-[#999]" />
+              </button>
+              <button className="h-[38px] px-3 hover:bg-[#3d3d3d] transition-colors flex items-center">
+                <Square className="w-3 h-3 text-[#999]" />
+              </button>
+              <button className="h-[38px] px-3 hover:bg-[#c03030] transition-colors flex items-center rounded-tr-xl">
+                <X className="w-3.5 h-3.5 text-[#999]" />
+              </button>
             </div>
           </div>
 
-          {/* Terminal body, Editor, or MC */}
-          <div ref={scrollRef} className="h-[480px] overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-[hsl(var(--background))]">
-            {mcActive ? (
-              <MidnightCommander termState={state} onClose={handleMcClose} />
-            ) : editorState.active ? (
+          {/* Search bar (GNOME-style) */}
+          {searchOpen && (
+            <div className="flex items-center gap-2 bg-[#2d2d2d] px-3 py-2 border-b border-[#444]">
+              <Search className="w-3.5 h-3.5 text-[#999]" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search…"
+                className="flex-1 bg-[#1a1b26] text-[#d3d7cf] text-[13px] px-3 py-1.5 rounded outline-none border border-[#444] focus:border-[#48b9c7] font-mono"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                  }
+                }}
+              />
+              <span className="text-[11px] text-[#888]">
+                {searchQuery
+                  ? `${activeTab.lines.filter((l) => l.text.toLowerCase().includes(searchQuery.toLowerCase())).length} matches`
+                  : ""}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                className="p-1 hover:bg-[#444] rounded transition-colors"
+              >
+                <X className="w-3 h-3 text-[#999]" />
+              </button>
+            </div>
+          )}
+
+          {/* Terminal body */}
+          <div
+            ref={scrollRef}
+            className="h-[480px] overflow-y-auto p-4 font-mono text-[13px] leading-[1.4] bg-[#1a1b26]"
+            style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
+          >
+            {activeTab.mcActive ? (
+              <MidnightCommander termState={activeTab.state} onClose={handleMcClose} />
+            ) : activeTab.editorState.active ? (
               <TerminalEditor
-                editor={editorState}
-                termState={state}
+                editor={activeTab.editorState}
+                termState={activeTab.state}
                 onClose={handleEditorClose}
               />
             ) : (
               <>
-                {lines.map((line, i) => (
-                  <div key={i} className={`${getLineColor(line)} whitespace-pre-wrap`}>
-                    {stripAnsi(line.text) || "\u00A0"}
-                  </div>
-                ))}
-                <div className="text-primary text-xs">{getPrompt()}</div>
+                {activeTab.lines.map((line, i) => {
+                  const isHighlighted =
+                    searchQuery &&
+                    line.text.toLowerCase().includes(searchQuery.toLowerCase());
+                  return (
+                    <div
+                      key={i}
+                      className={`${getLineColor(line)} whitespace-pre-wrap ${
+                        isHighlighted ? "bg-[#48b9c7]/20 rounded" : ""
+                      }`}
+                    >
+                      {stripAnsi(line.text) || "\u00A0"}
+                    </div>
+                  );
+                })}
+                <div className="text-[#48b9c7] text-[13px]">{getPrompt(activeTab.state)}</div>
                 <form onSubmit={handleSubmit} className="flex items-center gap-1">
-                  <span className="text-primary text-xs">└─$</span>
+                  <span className="text-[#48b9c7] text-[13px]">└─$</span>
                   <input
                     ref={inputRef}
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 bg-transparent text-foreground outline-none font-mono text-xs placeholder:text-muted-foreground/30 ml-1"
+                    className="flex-1 bg-transparent text-[#d3d7cf] outline-none font-mono text-[13px] placeholder:text-[#555] ml-1 caret-[#d3d7cf]"
                     placeholder=""
                     autoComplete="off"
                     spellCheck={false}
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />
                 </form>
               </>
             )}
           </div>
 
-          {/* Quick commands */}
-          {!editorState.active && !mcActive && (
-            <div className="px-4 py-3 border-t border-border/30 bg-card/50 flex flex-wrap gap-2">
-              <span className="text-[9px] text-muted-foreground/40 font-mono mr-2 self-center">Quick:</span>
+          {/* Quick commands bar */}
+          {!activeTab.editorState.active && !activeTab.mcActive && (
+            <div className="px-4 py-2.5 border-t border-[#333] bg-[#252530] flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] text-[#666] font-mono mr-2">Quick:</span>
               {[
                 { label: "neofetch", cmd: "neofetch" },
                 { label: "nmap scan", cmd: "nmap -sV 192.168.1.0/24" },
-                { label: "vim demo", cmd: "vim /etc/os-release" },
-                { label: "nano demo", cmd: "nano /home/kali/.bashrc" },
+                { label: "vim", cmd: "vim /etc/os-release" },
+                { label: "nano", cmd: "nano /home/kali/.bashrc" },
                 { label: "mc", cmd: "mc" },
-                { label: "port scanner", cmd: "python3 port_scanner.py --target 192.168.1.0/24" },
+                { label: "port scan", cmd: "python3 port_scanner.py --target 192.168.1.0/24" },
                 { label: "help", cmd: "help" },
               ].map((q) => (
                 <button
                   key={q.label}
-                  onClick={() => {
-                    setLines(prev => [
-                      ...prev,
-                      { text: getPrompt(), type: "system" },
-                      { text: `└─$ ${q.cmd}`, type: "input" },
-                    ]);
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateActiveTab((t) => ({
+                      lines: [
+                        ...t.lines,
+                        { text: getPrompt(t.state), type: "system" as const },
+                        { text: `└─$ ${q.cmd}`, type: "input" as const },
+                      ],
+                    }));
                     processCommand(q.cmd);
                     setInput("");
                   }}
-                  className="text-[10px] font-mono px-3 py-1.5 rounded-lg bg-primary/8 text-primary border border-primary/15 hover:bg-primary/15 transition-all"
+                  className="text-[11px] font-mono px-3 py-1 rounded bg-[#333] text-[#48b9c7] border border-[#444] hover:bg-[#444] hover:text-[#5dd5e3] transition-all"
                 >
                   {q.label}
                 </button>
               ))}
             </div>
           )}
+
+          {/* GNOME-style bottom info bar */}
+          <div className="flex items-center justify-between px-4 py-1 bg-[#2d2d2d] border-t border-[#333] text-[10px] text-[#777] font-mono">
+            <span>
+              {activeTab.mcActive
+                ? "mc — GNU Midnight Commander 4.8.31"
+                : activeTab.editorState.active
+                ? `${activeTab.editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2"} — ${activeTab.editorState.fileName}`
+                : `bash — ${activeTab.state.history.length} commands`}
+            </span>
+            <div className="flex items-center gap-3">
+              <span>{tabs.length} tab{tabs.length > 1 ? "s" : ""}</span>
+              <span>Kali 2026.1</span>
+              <span>GNOME Terminal 3.54</span>
+            </div>
+          </div>
         </motion.div>
       </div>
     </section>
