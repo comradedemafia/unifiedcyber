@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import {
   Shield, AlertTriangle, Activity, Globe, Lock, LogOut, Flame, Ban,
-  CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown
+  CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown, ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
