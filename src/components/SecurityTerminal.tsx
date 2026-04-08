@@ -669,6 +669,7 @@ const SecurityTerminal = () => {
             </div>
           </div>
         </motion.div>
+        </div>
       </div>
     </section>
   );
