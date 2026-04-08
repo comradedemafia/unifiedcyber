@@ -87,6 +87,49 @@ const SecurityTerminal = () => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
 
+  // Global GNOME keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey) {
+        switch (e.key) {
+          case "T":
+            e.preventDefault();
+            addTab();
+            break;
+          case "W":
+            e.preventDefault();
+            closeTab(activeTabId);
+            break;
+          case "C":
+            e.preventDefault();
+            const sel = window.getSelection()?.toString() || "";
+            if (sel) {
+              navigator.clipboard.writeText(sel).catch(() => setClipboard(sel));
+              setClipboard(sel);
+            }
+            break;
+          case "V":
+            e.preventDefault();
+            navigator.clipboard.readText().then((text) => {
+              setInput((prev) => prev + text);
+            }).catch(() => {
+              if (clipboard) setInput((prev) => prev + clipboard);
+            });
+            break;
+          case "F":
+            e.preventDefault();
+            setSearchOpen((p) => !p);
+            break;
+        }
+      }
+    };
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("keydown", handler);
+      return () => container.removeEventListener("keydown", handler);
+    }
+  }, [activeTabId, tabs.length, clipboard]);
+
   const updateActiveTab = useCallback(
     (updater: (tab: TerminalTab) => Partial<TerminalTab>) => {
       setTabs((prev) =>
