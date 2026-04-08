@@ -6,6 +6,7 @@ import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
 import TerminalEditor from "./terminal/TerminalEditor";
 import MidnightCommander from "./terminal/MidnightCommander";
+import TerminalPreferences, { TerminalPrefs, defaultPrefs, themeColors } from "./terminal/TerminalPreferences";
 
 interface TerminalTab {
   id: number;
@@ -63,11 +64,16 @@ const SecurityTerminal = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [prefs, setPrefs] = useState<TerminalPrefs>(defaultPrefs);
+  const [clipboard, setClipboard] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const theme = themeColors[prefs.theme];
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -80,6 +86,49 @@ const SecurityTerminal = () => {
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
+
+  // Global GNOME keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey) {
+        switch (e.key) {
+          case "T":
+            e.preventDefault();
+            addTab();
+            break;
+          case "W":
+            e.preventDefault();
+            closeTab(activeTabId);
+            break;
+          case "C":
+            e.preventDefault();
+            const sel = window.getSelection()?.toString() || "";
+            if (sel) {
+              navigator.clipboard.writeText(sel).catch(() => setClipboard(sel));
+              setClipboard(sel);
+            }
+            break;
+          case "V":
+            e.preventDefault();
+            navigator.clipboard.readText().then((text) => {
+              setInput((prev) => prev + text);
+            }).catch(() => {
+              if (clipboard) setInput((prev) => prev + clipboard);
+            });
+            break;
+          case "F":
+            e.preventDefault();
+            setSearchOpen((p) => !p);
+            break;
+        }
+      }
+    };
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("keydown", handler);
+      return () => container.removeEventListener("keydown", handler);
+    }
+  }, [activeTabId, tabs.length, clipboard]);
 
   const updateActiveTab = useCallback(
     (updater: (tab: TerminalTab) => Partial<TerminalTab>) => {
@@ -340,6 +389,14 @@ const SecurityTerminal = () => {
           </p>
         </motion.div>
 
+        <div
+          ref={containerRef}
+          tabIndex={-1}
+          className="outline-none"
+        >
+        {prefsOpen && (
+          <TerminalPreferences prefs={prefs} onSave={setPrefs} onClose={() => setPrefsOpen(false)} />
+        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -379,7 +436,7 @@ const SecurityTerminal = () => {
                     null,
                     { label: "Read-Only", shortcut: "", action: () => {} },
                     null,
-                    { label: "Preferences", shortcut: "", action: () => {} },
+                    { label: "Preferences", shortcut: "", action: () => setPrefsOpen(true) },
                     { label: "Help", shortcut: "", action: () => {} },
                     { label: "About", shortcut: "", action: () => {} },
                   ].map((item, i) =>
@@ -513,8 +570,13 @@ const SecurityTerminal = () => {
           {/* Terminal body */}
           <div
             ref={scrollRef}
-            className="h-[480px] overflow-y-auto p-4 font-mono text-[13px] leading-[1.4] bg-[#1a1b26]"
-            style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
+            className="h-[480px] overflow-y-auto p-4 font-mono leading-[1.4]"
+            style={{
+              fontFamily: prefs.fontFamily,
+              fontSize: prefs.fontSize,
+              backgroundColor: theme.bg,
+              color: theme.fg,
+            }}
           >
             {activeTab.mcActive ? (
               <MidnightCommander termState={activeTab.state} onClose={handleMcClose} />
@@ -541,20 +603,20 @@ const SecurityTerminal = () => {
                     </div>
                   );
                 })}
-                <div className="text-[#48b9c7] text-[13px]">{getPrompt(activeTab.state)}</div>
+                <div style={{ color: theme.prompt }}>{getPrompt(activeTab.state)}</div>
                 <form onSubmit={handleSubmit} className="flex items-center gap-1">
-                  <span className="text-[#48b9c7] text-[13px]">└─$</span>
+                  <span style={{ color: theme.prompt }}>└─$</span>
                   <input
                     ref={inputRef}
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 bg-transparent text-[#d3d7cf] outline-none font-mono text-[13px] placeholder:text-[#555] ml-1 caret-[#d3d7cf]"
+                    className="flex-1 bg-transparent outline-none font-mono placeholder:text-[#555] ml-1"
+                    style={{ color: theme.fg, fontSize: prefs.fontSize, fontFamily: prefs.fontFamily, caretColor: theme.fg }}
                     placeholder=""
                     autoComplete="off"
                     spellCheck={false}
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />
                 </form>
               </>
@@ -612,6 +674,7 @@ const SecurityTerminal = () => {
             </div>
           </div>
         </motion.div>
+        </div>
       </div>
     </section>
   );
