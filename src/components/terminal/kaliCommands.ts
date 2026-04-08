@@ -1,13 +1,14 @@
 import { FSNode, resolvePath, getNode, getParentAndName, formatSize } from "./kaliFileSystem";
 import { executePythonScript } from "./pythonScripts";
 import {
-  handleAptFull, cmdSort, cmdSed, cmdAwk, cmdCut, cmdTr, cmdXargs, cmdTee, cmdDiff,
+  handleAptFull as handleAptFullLegacy, cmdSort, cmdSed, cmdAwk, cmdCut, cmdTr, cmdXargs, cmdTee, cmdDiff,
   cmdTar, cmdZip, cmdUnzip, cmdLn, cmdStat, cmdReadlink, cmdRealpath, cmdBasename,
   cmdDirname, cmdCp, cmdMv, cmdWget, cmdCurl, cmdWfuzz, cmdCrackmapexec, cmdResponder,
   cmdNiktoFull, cmdSmbclient, cmdChmod, cmdChown, cmdTree, cmdWatch, cmdScreen, cmdTmux,
   cmdCrontab, cmdProxychains, cmdSocat, cmdExiftool, cmdBinwalk,
   isCommandInstalled, getUnknownCommandSuggestion,
 } from "./additionalCommands";
+import { handleAptFull, handleDpkg, handlePip, handleGem, handleSnap, handleGitClone } from "./packageManager";
 
 export interface TerminalState {
   cwd: string;
@@ -118,12 +119,18 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     nmap: () => cmdNmap(args),
     python3: () => cmdPython3(args, state),
     python: () => cmdPython3(args, state),
-    pip3: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
-    pip: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
-    git: () => cmdGit(args),
+    pip3: () => handlePip(args, state),
+    pip: () => handlePip(args, state),
+    git: () => {
+      if (args[0] === "clone") return handleGitClone(args.slice(1));
+      return cmdGit(args);
+    },
     apt: () => handleAptFull(args, state),
     "apt-get": () => handleAptFull(args, state),
-    dpkg: () => ({ output: args.includes("-l") ? ["ii  nmap  7.94  amd64  Network exploration tool", "ii  python3  3.12.3  amd64  Python interpreter"] : ["dpkg: error: need an action option"] }),
+    dpkg: () => handleDpkg(args, state),
+    "dpkg-query": () => handleDpkg(["-s", ...args], state),
+    snap: () => handleSnap(args),
+    gem: () => handleGem(args),
     sudo: () => {
       const subCmd = args.join(" ");
       return executeCommand(subCmd, { ...state, user: "root" });
