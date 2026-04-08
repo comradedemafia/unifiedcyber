@@ -249,7 +249,7 @@ function aptInstall(pkgs: string[], assumeYes: boolean): CmdResult {
     return { output: lines };
   }
 
-  const uniqueDeps = [...new Set(deps)];
+  const uniqueDeps = Array.from(new Set(deps));
   if (uniqueDeps.length > 0) {
     lines.push("The following additional packages will be installed:");
     lines.push(`  ${uniqueDeps.join(" ")}`);
