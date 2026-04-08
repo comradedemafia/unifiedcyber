@@ -389,6 +389,14 @@ const SecurityTerminal = () => {
           </p>
         </motion.div>
 
+        <div
+          ref={containerRef}
+          tabIndex={-1}
+          className="outline-none"
+        >
+        {prefsOpen && (
+          <TerminalPreferences prefs={prefs} onSave={setPrefs} onClose={() => setPrefsOpen(false)} />
+        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -428,7 +436,7 @@ const SecurityTerminal = () => {
                     null,
                     { label: "Read-Only", shortcut: "", action: () => {} },
                     null,
-                    { label: "Preferences", shortcut: "", action: () => {} },
+                    { label: "Preferences", shortcut: "", action: () => setPrefsOpen(true) },
                     { label: "Help", shortcut: "", action: () => {} },
                     { label: "About", shortcut: "", action: () => {} },
                   ].map((item, i) =>
