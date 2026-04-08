@@ -119,9 +119,12 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     nmap: () => cmdNmap(args),
     python3: () => cmdPython3(args, state),
     python: () => cmdPython3(args, state),
-    pip3: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
-    pip: () => ({ output: ["pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)"] }),
-    git: () => cmdGit(args),
+    pip3: () => handlePip(args, state),
+    pip: () => handlePip(args, state),
+    git: () => {
+      if (args[0] === "clone") return handleGitClone(args.slice(1));
+      return cmdGit(args);
+    },
     apt: () => handleAptFull(args, state),
     "apt-get": () => handleAptFull(args, state),
     dpkg: () => handleDpkg(args, state),
