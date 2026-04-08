@@ -124,7 +124,10 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     git: () => cmdGit(args),
     apt: () => handleAptFull(args, state),
     "apt-get": () => handleAptFull(args, state),
-    dpkg: () => ({ output: args.includes("-l") ? ["ii  nmap  7.94  amd64  Network exploration tool", "ii  python3  3.12.3  amd64  Python interpreter"] : ["dpkg: error: need an action option"] }),
+    dpkg: () => handleDpkg(args, state),
+    "dpkg-query": () => handleDpkg(["-s", ...args], state),
+    snap: () => handleSnap(args),
+    gem: () => handleGem(args),
     sudo: () => {
       const subCmd = args.join(" ");
       return executeCommand(subCmd, { ...state, user: "root" });
