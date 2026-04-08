@@ -570,8 +570,13 @@ const SecurityTerminal = () => {
           {/* Terminal body */}
           <div
             ref={scrollRef}
-            className="h-[480px] overflow-y-auto p-4 font-mono text-[13px] leading-[1.4] bg-[#1a1b26]"
-            style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
+            className="h-[480px] overflow-y-auto p-4 font-mono leading-[1.4]"
+            style={{
+              fontFamily: prefs.fontFamily,
+              fontSize: prefs.fontSize,
+              backgroundColor: theme.bg,
+              color: theme.fg,
+            }}
           >
             {activeTab.mcActive ? (
               <MidnightCommander termState={activeTab.state} onClose={handleMcClose} />
@@ -598,20 +603,20 @@ const SecurityTerminal = () => {
                     </div>
                   );
                 })}
-                <div className="text-[#48b9c7] text-[13px]">{getPrompt(activeTab.state)}</div>
+                <div style={{ color: theme.prompt }}>{getPrompt(activeTab.state)}</div>
                 <form onSubmit={handleSubmit} className="flex items-center gap-1">
-                  <span className="text-[#48b9c7] text-[13px]">└─$</span>
+                  <span style={{ color: theme.prompt }}>└─$</span>
                   <input
                     ref={inputRef}
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 bg-transparent text-[#d3d7cf] outline-none font-mono text-[13px] placeholder:text-[#555] ml-1 caret-[#d3d7cf]"
+                    className="flex-1 bg-transparent outline-none font-mono placeholder:text-[#555] ml-1"
+                    style={{ color: theme.fg, fontSize: prefs.fontSize, fontFamily: prefs.fontFamily, caretColor: theme.fg }}
                     placeholder=""
                     autoComplete="off"
                     spellCheck={false}
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />
                 </form>
               </>
