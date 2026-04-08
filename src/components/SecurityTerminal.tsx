@@ -6,6 +6,7 @@ import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
 import TerminalEditor from "./terminal/TerminalEditor";
 import MidnightCommander from "./terminal/MidnightCommander";
+import TerminalPreferences, { TerminalPrefs, defaultPrefs, themeColors } from "./terminal/TerminalPreferences";
 
 interface TerminalTab {
   id: number;
@@ -63,11 +64,16 @@ const SecurityTerminal = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [prefs, setPrefs] = useState<TerminalPrefs>(defaultPrefs);
+  const [clipboard, setClipboard] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const theme = themeColors[prefs.theme];
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
