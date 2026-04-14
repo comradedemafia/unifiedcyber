@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface ThreatPattern {
   id: string;
   type: string;
-  pattern: string;
+  pattern: RegExp;
   severity: 'low' | 'medium' | 'high' | 'critical';
   description: string;
   lastDetected?: string;
@@ -25,7 +25,7 @@ const IntrusionDetection = () => {
       {
         id: '1',
         type: 'SQL Injection',
-        pattern: /('|(\\x27)|(\\x2D\\x2D)|(\\#)|(\\/\\*.*\\*\\/)|(\\x3B)|(\\x2A)|(\\x2B)|(\\x2D)|(\\x25)|(\\x3D)|(\\x28)|(\\x29)|(\\x5B)|(\\x5D)|(\\x7B)|(\\x7D)|(\\x40)|(\\x21)|(\\x3C)|(\\x3E)|(\\x22)|(\\x27)|(\\x3B)|(\\x3A)|(\\x2F)|(\\x5C)|(\\x7C)|(\\x26)|(\\x24)|(\\x23)|(\\x3F)|(\\x3D)|(\\x2B)|(\\x25)|(\\x2E)|(\\x2C)|(\\x3B)|(\\x3A)|(\\x2D)|(\\x5F)|(\\x7E)|(\\x60)|(\\x21)|(\\x40)|(\\x23)|(\\x24)|(\\x25)|(\\x5E)|(\\x26)|(\\x2A)|(\\x28)|(\\x29)|(\\x2D)|(\\x2B)|(\\x3D)|(\\x5B)|(\\x5D)|(\\x7B)|(\\x7D)|(\\x7C)|(\\x5C)|(\\x3A)|(\\x3B)|(\\x22)|(\\x27)|(\\x3C)|(\\x3E)|(\\x2C)|(\\x2E)|(\\x2F)|(\\x3F)|(\\x7E)|(\\x60)|(\\x20)|(\\x09)|(\\x0A)|(\\x0D)|(\\x0B)|(\\x0C))/i,
+        pattern: /(\b(select|union|insert|update|delete|drop|alter|create|truncate|exec)\b|--|\/\*|\*\/|\bx?or\b)/i,
         severity: 'high',
         description: 'Potential SQL injection attempts detected',
         count: 0,
