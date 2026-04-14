@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity } from "@/utils/security";
+import { useAuditLogging } from "@/hooks/useAuditLogging";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -19,6 +20,7 @@ const Login = () => {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { logAuthAction } = useAuditLogging({ showNotifications: true });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,18 +70,22 @@ const Login = () => {
         const { error } = await signUp(sanitizedEmail, sanitizedPassword, sanitizedDisplayName);
         if (error) {
           logSecurityEvent("signup_failed", { email: sanitizedEmail, error: error.message });
+          await logAuthAction('signup', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Signup Error", description: error.message, variant: "destructive" });
         } else {
-          logSecurityEvent("signup_success", { email: sanitizedEmail });
+          logSecurityEvent('signup_success', { email: sanitizedEmail });
+          await logAuthAction('signup', 'success', { email: sanitizedEmail });
           toast({ title: "Account Created", description: "Please check your email to verify your account." });
         }
       } else {
         const { error } = await signIn(sanitizedEmail, sanitizedPassword);
         if (error) {
           logSecurityEvent("login_failed", { email: sanitizedEmail, error: error.message });
+          await logAuthAction('login', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Login Error", description: error.message, variant: "destructive" });
         } else {
-          logSecurityEvent("login_success", { email: sanitizedEmail });
+          logSecurityEvent('login_success', { email: sanitizedEmail });
+          await logAuthAction('login', 'success', { email: sanitizedEmail });
           navigate("/dashboard");
         }
       }

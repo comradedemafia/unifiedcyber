@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { useAuditLogging } from "@/hooks/useAuditLogging";
+import { createSecurityIncident, blockIP, createThreatAlert } from "@/utils/validatedOperations";
 import {
   Shield, AlertTriangle, CheckCircle2, Activity, Globe, Lock,
   LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock, Eye,
@@ -25,6 +27,7 @@ const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { validateAndInsert } = useAuditLogging({ showNotifications: true });
   const [stats, setStats] = useState({
     totalIncidents: 0,
     activeThreats: 0,
@@ -92,13 +95,13 @@ const Dashboard = () => {
     setAutoResponses(prev => [responseLog, ...prev].slice(0, 20));
 
     try {
-      const { error: blockError } = await supabase.from("blocked_ips").insert({
+      const blockResult = await blockIP({
         ip_address: alert.source_ip,
         reason: `Auto-blocked: ${alert.alert_type} - ${alert.message}`,
-        blocked_by: "automated-response",
         is_permanent: false,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      });
+      }, user?.id);
+      const blockError = blockResult.error ? { message: blockResult.error } : null;
 
       responseLog.actions.push({
         action: "Block IP",
@@ -106,18 +109,14 @@ const Dashboard = () => {
         detail: blockError ? blockError.message : `${alert.source_ip} blocked for 24h`,
       });
 
-      const { error: incError } = await supabase.from("security_incidents").insert({
+      const incResult = await createSecurityIncident({
         incident_type: alert.alert_type,
-        severity: alert.severity,
+        severity: alert.severity as 'low' | 'medium' | 'high' | 'critical',
         description: `Auto-generated from critical alert: ${alert.message}`,
         source_ip: alert.source_ip,
         status: "investigating",
-        response_actions: [
-          { action: "IP Blocked", time: new Date().toISOString() },
-          { action: "Incident Created", time: new Date().toISOString() },
-          { action: "Admin Notified", time: new Date().toISOString() },
-        ],
-      });
+      }, user?.id);
+      const incError = incResult.error ? { message: incResult.error } : null;
 
       responseLog.actions.push({
         action: "Create Incident",
