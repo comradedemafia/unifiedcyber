@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { logSecurityEvent } from "@/utils/security";
+import { initializeSecurityDefenses } from "@/utils/advancedSecurity";
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +21,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const touchSecurityActivity = useCallback(() => {
+    const now = Date.now();
+    localStorage.setItem("security_last_activity", now.toString());
+    localStorage.setItem("security_last_event", new Date().toISOString());
+  }, []);
+
   const refreshSession = useCallback(async () => {
     try {
       const { data, error } = await supabase.auth.refreshSession();
@@ -26,17 +34,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.session) {
         setSession(data.session);
         setUser(data.session.user);
+        touchSecurityActivity();
       }
     } catch (error) {
       console.error("Session refresh failed:", error);
-      // Force sign out on refresh failure
+      logSecurityEvent("session_refresh_failed", { error: error instanceof Error ? error.message : String(error) });
       await signOut();
     }
-  }, []);
+  }, [touchSecurityActivity]);
 
   useEffect(() => {
     let mounted = true;
     let sessionCheckInterval: NodeJS.Timeout;
+
+    // Initialize security defenses on app load
+    initializeSecurityDefenses().catch(err => 
+      console.error('Failed to initialize security defenses:', err)
+    );
 
     const {
       data: { subscription },
@@ -44,25 +58,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!mounted) return;
 
       console.log("Auth state change:", event);
-
-      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        return;
-      }
+      logSecurityEvent("auth_state_change", { event, user: session?.user?.email });
 
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // Log security events
-      if (event === 'SIGNED_IN') {
-        localStorage.setItem('security_last_activity', Date.now().toString());
-        console.log("Security: User signed in");
-      } else if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('security_last_activity');
-        console.log("Security: User signed out");
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        touchSecurityActivity();
+      }
+
+      if (event === "SIGNED_OUT") {
+        localStorage.removeItem("security_last_activity");
+        localStorage.removeItem("security_last_event");
       }
     });
 
@@ -73,36 +81,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    // Session security check every 5 minutes
+    const handleUserActivity = () => {
+      if (!mounted) return;
+      touchSecurityActivity();
+    };
+
+    const activityEvents = ["mousemove", "mousedown", "keydown", "touchstart", "visibilitychange"];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, handleUserActivity));
+
     sessionCheckInterval = setInterval(async () => {
       if (!mounted) return;
 
-      const lastActivity = localStorage.getItem('security_last_activity');
+      const { data: { session: currentSession }, error: checkError } = await supabase.auth.getSession();
+      if (checkError) {
+        console.error("Session check failed:", checkError);
+        logSecurityEvent("session_check_failed", { error: checkError.message });
+      }
+
+      if (!mounted) return;
+      setSession(currentSession);
+
+      const lastActivity = localStorage.getItem("security_last_activity");
       if (lastActivity) {
-        const timeSinceActivity = Date.now() - parseInt(lastActivity);
-        // Auto sign out after 2 hours of inactivity
-        if (timeSinceActivity > 2 * 60 * 60 * 1000) {
-          console.log("Security: Auto sign out due to inactivity");
+        const timeSinceActivity = Date.now() - parseInt(lastActivity, 10);
+        if (timeSinceActivity > 60 * 60 * 1000) {
+          logSecurityEvent("auto_sign_out_inactivity", { idleMinutes: Math.floor(timeSinceActivity / 60000) });
           await signOut();
           return;
         }
       }
 
-      // Refresh session if close to expiry
-      if (session?.expires_at) {
-        const timeToExpiry = session.expires_at * 1000 - Date.now();
-        if (timeToExpiry < 5 * 60 * 1000) { // Less than 5 minutes
+      if (currentSession?.expires_at) {
+        const timeToExpiry = currentSession.expires_at * 1000 - Date.now();
+        if (timeToExpiry < 5 * 60 * 1000) {
           await refreshSession();
         }
       }
-    }, 5 * 60 * 1000); // Check every 5 minutes
+    }, 60 * 1000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
       if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, handleUserActivity));
     };
-  }, [refreshSession]);
+  }, [refreshSession, touchSecurityActivity]);
 
   const signUp = async (email: string, password: string, displayName?: string) => {
     try {
@@ -115,11 +138,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
       if (!error) {
-        localStorage.setItem('security_last_activity', Date.now().toString());
+        touchSecurityActivity();
+        logSecurityEvent("signup_success", { email });
       }
       return { error };
     } catch (error) {
       console.error("Sign up error:", error);
+      logSecurityEvent("signup_error", { email, error: error instanceof Error ? error.message : String(error) });
       return { error };
     }
   };
@@ -128,11 +153,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (!error) {
-        localStorage.setItem('security_last_activity', Date.now().toString());
+        touchSecurityActivity();
+        logSecurityEvent("signin_success", { email });
       }
       return { error };
     } catch (error) {
       console.error("Sign in error:", error);
+      logSecurityEvent("signin_error", { email, error: error instanceof Error ? error.message : String(error) });
       return { error };
     }
   };
@@ -142,10 +169,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signOut();
       setUser(null);
       setSession(null);
-      // Clear any local storage security data
-      localStorage.removeItem('security_last_activity');
+      localStorage.removeItem("security_last_activity");
+      localStorage.removeItem("security_last_event");
+      logSecurityEvent("signout", { user: user?.email });
     } catch (error) {
       console.error("Sign out error:", error);
+      logSecurityEvent("signout_error", { error: error instanceof Error ? error.message : String(error) });
     }
   };
 

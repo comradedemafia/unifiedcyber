@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent } from "@/utils/security";
+import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity } from "@/utils/security";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,29 +23,35 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Sanitize inputs
     const sanitizedEmail = sanitizeInput(email);
-    const sanitizedPassword = password; // Don't sanitize password as it might contain special chars
+    const sanitizedPassword = password;
     const sanitizedDisplayName = sanitizeInput(displayName);
 
-    // Validate email
     if (!validateEmail(sanitizedEmail)) {
       toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
 
-    // Rate limiting check
-    if (!rateLimit(sanitizedEmail, 5, 15 * 60 * 1000)) { // 5 attempts per 15 minutes
-      logSecurityEvent('rate_limit_exceeded', { email: sanitizedEmail });
+    if (!isSignUp && checkForSuspiciousActivity()) {
+      logSecurityEvent("suspicious_activity_blocked", { email: sanitizedEmail });
+      toast({
+        title: "Suspicious Activity Detected",
+        description: "Multiple failed login attempts were detected. Try again after 15 minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!rateLimit(sanitizedEmail, 5, 15 * 60 * 1000)) {
+      logSecurityEvent("rate_limit_exceeded", { email: sanitizedEmail });
       toast({ title: "Too Many Attempts", description: "Please wait before trying again.", variant: "destructive" });
       return;
     }
 
     if (isSignUp) {
-      // Validate password for signup
       const passwordValidation = validatePassword(sanitizedPassword);
       if (!passwordValidation.valid) {
-        toast({ title: "Weak Password", description: passwordValidation.errors.join(', '), variant: "destructive" });
+        toast({ title: "Weak Password", description: passwordValidation.errors.join(", "), variant: "destructive" });
         return;
       }
 
@@ -61,24 +67,25 @@ const Login = () => {
       if (isSignUp) {
         const { error } = await signUp(sanitizedEmail, sanitizedPassword, sanitizedDisplayName);
         if (error) {
-          logSecurityEvent('signup_failed', { email: sanitizedEmail, error: error.message });
+          logSecurityEvent("signup_failed", { email: sanitizedEmail, error: error.message });
           toast({ title: "Signup Error", description: error.message, variant: "destructive" });
         } else {
-          logSecurityEvent('signup_success', { email: sanitizedEmail });
+          logSecurityEvent("signup_success", { email: sanitizedEmail });
           toast({ title: "Account Created", description: "Please check your email to verify your account." });
         }
       } else {
         const { error } = await signIn(sanitizedEmail, sanitizedPassword);
         if (error) {
-          logSecurityEvent('login_failed', { email: sanitizedEmail, error: error.message });
+          logSecurityEvent("login_failed", { email: sanitizedEmail, error: error.message });
           toast({ title: "Login Error", description: error.message, variant: "destructive" });
         } else {
-          logSecurityEvent('login_success', { email: sanitizedEmail });
+          logSecurityEvent("login_success", { email: sanitizedEmail });
           navigate("/dashboard");
         }
       }
     } catch (error) {
-      logSecurityEvent('auth_error', { email: sanitizedEmail, error: error.message });
+      const message = error instanceof Error ? error.message : String(error);
+      logSecurityEvent("auth_error", { email: sanitizedEmail, error: message });
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setLoading(false);

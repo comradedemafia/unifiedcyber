@@ -17,8 +17,8 @@ export const validateEmail = (email: string): boolean => {
 export const validatePassword = (password: string): { valid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
-  if (password.length < 8) {
-    errors.push('Password must be at least 8 characters long');
+  if (password.length < 10) {
+    errors.push('Password must be at least 10 characters long');
   }
   if (!/[A-Z]/.test(password)) {
     errors.push('Password must contain at least one uppercase letter');
@@ -41,25 +41,39 @@ export const validateIP = (ip: string): boolean => {
   return ipRegex.test(ip);
 };
 
-export const rateLimit = (() => {
-  const attempts = new Map<string, number[]>();
+const RATE_LIMIT_STORAGE_KEY = 'security_rate_limit';
 
-  return (key: string, maxAttempts: number = 5, windowMs: number = 15 * 60 * 1000): boolean => {
-    const now = Date.now();
-    const userAttempts = attempts.get(key) || [];
+type RateLimitRecord = Record<string, number[]>;
 
-    // Remove old attempts outside the window
-    const validAttempts = userAttempts.filter(time => now - time < windowMs);
+const readRateLimitStorage = (): RateLimitRecord => {
+  try {
+    return JSON.parse(localStorage.getItem(RATE_LIMIT_STORAGE_KEY) || '{}') as RateLimitRecord;
+  } catch {
+    return {};
+  }
+};
 
-    if (validAttempts.length >= maxAttempts) {
-      return false; // Rate limited
-    }
+const writeRateLimitStorage = (data: RateLimitRecord) => {
+  localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(data));
+};
 
-    validAttempts.push(now);
-    attempts.set(key, validAttempts);
-    return true; // Allowed
-  };
-})();
+export const rateLimit = (key: string, maxAttempts: number = 5, windowMs: number = 15 * 60 * 1000): boolean => {
+  const now = Date.now();
+  const data = readRateLimitStorage();
+  const attempts = data[key] || [];
+  const validAttempts = attempts.filter(time => now - time < windowMs);
+
+  if (validAttempts.length >= maxAttempts) {
+    data[key] = validAttempts;
+    writeRateLimitStorage(data);
+    return false;
+  }
+
+  validAttempts.push(now);
+  data[key] = validAttempts;
+  writeRateLimitStorage(data);
+  return true;
+};
 
 export const logSecurityEvent = (event: string, details?: any) => {
   const timestamp = new Date().toISOString();
@@ -88,4 +102,219 @@ export const checkForSuspiciousActivity = () => {
   }
 
   return false;
+};
+
+// ============ ADVANCED SECURITY FEATURES ============
+
+// Multi-Factor Authentication (MFA) Support
+export const mfaManager = {
+  enableMFA: (userId: string, method: 'totp' | 'sms' | 'email' = 'totp') => {
+    const mfaStore = JSON.parse(localStorage.getItem('mfa_settings') || '{}');
+    mfaStore[userId] = {
+      enabled: true,
+      method,
+      enabledAt: new Date().toISOString(),
+      verified: false
+    };
+    localStorage.setItem('mfa_settings', JSON.stringify(mfaStore));
+    logSecurityEvent('mfa_enabled', { userId, method });
+    return true;
+  },
+
+  disableMFA: (userId: string) => {
+    const mfaStore = JSON.parse(localStorage.getItem('mfa_settings') || '{}');
+    if (mfaStore[userId]) {
+      mfaStore[userId].enabled = false;
+    }
+    localStorage.setItem('mfa_settings', JSON.stringify(mfaStore));
+    logSecurityEvent('mfa_disabled', { userId });
+    return true;
+  },
+
+  isMFAEnabled: (userId: string): boolean => {
+    const mfaStore = JSON.parse(localStorage.getItem('mfa_settings') || '{}');
+    return mfaStore[userId]?.enabled ?? false;
+  },
+
+  getMFAMethod: (userId: string): 'totp' | 'sms' | 'email' | null => {
+    const mfaStore = JSON.parse(localStorage.getItem('mfa_settings') || '{}');
+    return mfaStore[userId]?.method ?? null;
+  }
+};
+
+// API Key Management
+export const apiKeyManager = {
+  generateAPIKey: (name: string, permissions: string[] = ['read']): string => {
+    const prefix = 'sk_';
+    const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    const apiKey = prefix + randomPart;
+
+    const keys = JSON.parse(localStorage.getItem('api_keys') || '{}');
+    keys[apiKey] = {
+      name,
+      permissions,
+      createdAt: new Date().toISOString(),
+      lastUsed: null,
+      active: true
+    };
+    localStorage.setItem('api_keys', JSON.stringify(keys));
+    logSecurityEvent('api_key_created', { name });
+    return apiKey;
+  },
+
+  validateAPIKey: (apiKey: string): boolean => {
+    const keys = JSON.parse(localStorage.getItem('api_keys') || '{}');
+    const key = keys[apiKey];
+    if (!key || !key.active) return false;
+    
+    keys[apiKey].lastUsed = new Date().toISOString();
+    localStorage.setItem('api_keys', JSON.stringify(keys));
+    return true;
+  },
+
+  revokeAPIKey: (apiKey: string) => {
+    const keys = JSON.parse(localStorage.getItem('api_keys') || '{}');
+    if (keys[apiKey]) {
+      keys[apiKey].active = false;
+      keys[apiKey].revokedAt = new Date().toISOString();
+    }
+    localStorage.setItem('api_keys', JSON.stringify(keys));
+    logSecurityEvent('api_key_revoked', { key: apiKey.substring(0, 10) + '...' });
+    return true;
+  },
+
+  listAPIKeys: () => {
+    return JSON.parse(localStorage.getItem('api_keys') || '{}');
+  }
+};
+
+// Session Management
+export const sessionManager = {
+  createSecureSession: (userId: string, expiryMinutes: number = 60): string => {
+    const sessionId = crypto.randomUUID();
+    const sessions = JSON.parse(localStorage.getItem('sessions') || '{}');
+    
+    sessions[sessionId] = {
+      userId,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000).toISOString(),
+      active: true,
+      ipAddress: 'client-side', // In production, use actual IP
+      userAgent: navigator.userAgent
+    };
+    
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+    logSecurityEvent('session_created', { userId, expiryMinutes });
+    return sessionId;
+  },
+
+  validateSession: (sessionId: string): boolean => {
+    const sessions = JSON.parse(localStorage.getItem('sessions') || '{}');
+    const session = sessions[sessionId];
+    
+    if (!session || !session.active) return false;
+    if (new Date(session.expiresAt) < new Date()) {
+      session.active = false;
+      localStorage.setItem('sessions', JSON.stringify(sessions));
+      return false;
+    }
+    
+    return true;
+  },
+
+  revokeSession: (sessionId: string) => {
+    const sessions = JSON.parse(localStorage.getItem('sessions') || '{}');
+    if (sessions[sessionId]) {
+      sessions[sessionId].active = false;
+      sessions[sessionId].revokedAt = new Date().toISOString();
+    }
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+    logSecurityEvent('session_revoked', { sessionId });
+    return true;
+  }
+};
+
+// Data Encryption Helper (for sensitive fields)
+export const dataEncryption = {
+  encryptSensitiveField: async (data: string, keyMaterial?: string): Promise<string> => {
+    // In production, use actual encryption library (crypto-js or TweetNaCl.js)
+    // This is a simplified demo version
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return 'enc_' + hashHex;
+  },
+
+  isDataEncrypted: (data: string): boolean => {
+    return data.startsWith('enc_');
+  }
+};
+
+// CORS & Security Headers Management
+export const securityHeaders = {
+  enforceCSP: () => {
+    const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    if (!cspMeta) {
+      const meta = document.createElement('meta');
+      meta.httpEquiv = 'Content-Security-Policy';
+      meta.content = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:";
+      document.head.appendChild(meta);
+      logSecurityEvent('csp_enforced', {});
+    }
+  },
+
+  enforceHSTS: () => {
+    // HSTS should be set server-side, but we can log client-side enforcement
+    if (window.location.protocol === 'https:') {
+      logSecurityEvent('hsts_available', { protocol: 'https' });
+    }
+  },
+
+  getSecurityHeaders: () => {
+    return {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
+    };
+  }
+};
+
+// Audit Logging
+export const auditLog = {
+  logAction: (action: string, user: string, details: any, severity: 'info' | 'warning' | 'error' = 'info') => {
+    const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
+    logs.push({
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      action,
+      user,
+      details,
+      severity,
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    });
+    
+    // Keep last 500 audit logs
+    if (logs.length > 500) logs.shift();
+    localStorage.setItem('audit_logs', JSON.stringify(logs));
+  },
+
+  getAuditLogs: (filterBySeverity?: string) => {
+    const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
+    if (filterBySeverity) {
+      return logs.filter((log: any) => log.severity === filterBySeverity);
+    }
+    return logs;
+  },
+
+  exportAuditLogs: (): string => {
+    const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
+    return JSON.stringify(logs, null, 2);
+  }
 };

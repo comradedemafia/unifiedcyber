@@ -11,22 +11,25 @@ const SecurityMonitor = () => {
     sessionValid: false,
     httpsEnabled: false,
     cspEnabled: false,
-    lastActivity: Date.now(),
+    lastActivity: 0,
+    defenseMode: false,
   });
 
   useEffect(() => {
-    // Check authentication security
     const checkSecurity = () => {
       const isHttps = window.location.protocol === 'https:';
       const hasCSP = document.querySelector('meta[http-equiv="Content-Security-Policy"]') !== null;
-      const sessionValid = session && session.expires_at && session.expires_at > Date.now() / 1000;
+      const sessionValid = !!(session && session.expires_at && session.expires_at > Date.now() / 1000);
+      const lastActivity = parseInt(localStorage.getItem("security_last_activity") || "0", 10);
+      const defenseMode = lastActivity > 0 && Date.now() - lastActivity < 30 * 60 * 1000;
 
       setSecurityStatus({
         authSecure: !!user,
-        sessionValid: !!sessionValid,
+        sessionValid,
         httpsEnabled: isHttps,
         cspEnabled: hasCSP,
-        lastActivity: Date.now(),
+        lastActivity,
+        defenseMode,
       });
     };
 
