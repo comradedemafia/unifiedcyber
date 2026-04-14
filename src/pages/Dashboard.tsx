@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import {
   Shield, AlertTriangle, CheckCircle2, Activity, Globe, Lock,
   LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock, Eye,
@@ -13,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationPanel from "@/components/NotificationPanel";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useToast } from "@/hooks/use-toast";
+import SecurityMonitor from "@/components/SecurityMonitor";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -35,46 +37,45 @@ const Dashboard = () => {
   const [testMessage, setTestMessage] = useState("Test critical alert from SOC dashboard");
   const [testSourceIp, setTestSourceIp] = useState("192.168.1.100");
 
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
-      const [incidents, alerts, blocked] = await Promise.all([
-        supabase.from("security_incidents").select("id, status", { count: "exact" }),
-        supabase.from("threat_alerts").select("*").order("created_at", { ascending: false }).limit(10),
-        supabase.from("blocked_ips").select("id", { count: "exact" }),
-      ]);
+      try {
+        const [incidents, alerts, blocked] = await Promise.all([
+          supabase.from("security_incidents").select("id, status", { count: "exact" }),
+          supabase.from("threat_alerts").select("*").order("created_at", { ascending: false }).limit(10),
+          supabase.from("blocked_ips").select("id", { count: "exact" }),
+        ]);
 
-      const incidentData = incidents.data || [];
-      setStats({
-        totalIncidents: incidents.count || 0,
-        activeThreats: incidentData.filter(i => i.status !== "resolved").length,
-        blockedIPs: blocked.count || 0,
-        resolvedIncidents: incidentData.filter(i => i.status === "resolved").length,
-      });
-      setRecentAlerts(alerts.data || []);
-      setLoading(false);
+        const incidentData = incidents.data || [];
+        if (!mountedRef.current) return;
+
+        setStats({
+          totalIncidents: incidents.count || 0,
+          activeThreats: incidentData.filter(i => i.status !== "resolved").length,
+          blockedIPs: blocked.count || 0,
+          resolvedIncidents: incidentData.filter(i => i.status === "resolved").length,
+        });
+        setRecentAlerts(alerts.data || []);
+      } catch (error) {
+        console.error("Dashboard load failed", error);
+        toast({ title: "Dashboard error", description: "Unable to fetch dashboard data", variant: "destructive" });
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
     };
 
     loadData();
+  }, [toast]);
 
-    // Realtime subscription with automated response
-    const channel = supabase
-      .channel("dashboard-alerts")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "threat_alerts" }, async (payload) => {
-        const newAlert = payload.new as any;
-        setRecentAlerts(prev => [newAlert, ...prev].slice(0, 10));
-        setStats(prev => ({ ...prev, activeThreats: prev.activeThreats + 1 }));
-
-        // AUTOMATED RESPONSE: If critical, auto-block IP and create incident
-        if (newAlert.severity === "critical" && newAlert.source_ip) {
-          await handleAutoResponse(newAlert);
-        }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  const handleAutoResponse = async (alert: any) => {
+  const handleAutoResponse = useCallback(async (alert: any) => {
     const responseLog: any = {
       id: crypto.randomUUID(),
       time: new Date().toLocaleTimeString("en-US", { hour12: false }),
@@ -87,7 +88,6 @@ const Dashboard = () => {
     setAutoResponses(prev => [responseLog, ...prev].slice(0, 20));
 
     try {
-      // Step 1: Block the IP
       const { error: blockError } = await supabase.from("blocked_ips").insert({
         ip_address: alert.source_ip,
         reason: `Auto-blocked: ${alert.alert_type} - ${alert.message}`,
@@ -102,7 +102,6 @@ const Dashboard = () => {
         detail: blockError ? blockError.message : `${alert.source_ip} blocked for 24h`,
       });
 
-      // Step 2: Create security incident
       const { error: incError } = await supabase.from("security_incidents").insert({
         incident_type: alert.alert_type,
         severity: alert.severity,
@@ -122,7 +121,6 @@ const Dashboard = () => {
         detail: incError ? incError.message : "Incident logged",
       });
 
-      // Step 3: Send admin alert via Edge Function
       const { error: alertError } = await supabase.functions.invoke("send-critical-alert", {
         body: {
           alert_type: alert.alert_type,
@@ -140,18 +138,49 @@ const Dashboard = () => {
       });
 
       responseLog.status = "completed";
-      setStats(prev => ({ ...prev, blockedIPs: prev.blockedIPs + 1 }));
+      if (mountedRef.current) setStats(prev => ({ ...prev, blockedIPs: prev.blockedIPs + 1 }));
 
       toast({
         title: "⚡ Automated Response Executed",
         description: `${alert.alert_type} from ${alert.source_ip} — IP blocked, incident created, admin notified`,
       });
-    } catch (err) {
+    } catch (err: any) {
       responseLog.status = "error";
+      responseLog.actions.push({
+        action: "Error",
+        status: "failed",
+        detail: err?.message ?? "Unexpected error",
+      });
+      console.error("Auto response failed", err);
     }
 
-    setAutoResponses(prev => prev.map(r => r.id === responseLog.id ? responseLog : r));
-  };
+    if (mountedRef.current) {
+      setAutoResponses(prev => prev.map(r => (r.id === responseLog.id ? responseLog : r)));
+    }
+  }, [toast, user]);
+
+  useSupabaseRealtime(
+    "dashboard-alerts",
+    [
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "threat_alerts",
+        callback: async (payload) => {
+          const newAlert = payload.new as any;
+          if (!newAlert) return;
+
+          setRecentAlerts(prev => [newAlert, ...prev].slice(0, 10));
+          setStats(prev => ({ ...prev, activeThreats: prev.activeThreats + 1 }));
+
+          if (newAlert.severity === "critical" && newAlert.source_ip) {
+            await handleAutoResponse(newAlert);
+          }
+        },
+      },
+    ],
+    [handleAutoResponse]
+  );
 
   const handleSendTestAlert = async () => {
     setSendingTest(true);
@@ -434,6 +463,9 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Security Monitor */}
+        <SecurityMonitor />
       </main>
     </div>
   );

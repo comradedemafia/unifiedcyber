@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
@@ -15,6 +15,9 @@ import GeoThreatMap from "@/components/GeoThreatMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportSIEMReport } from "@/utils/exportSIEMReport";
 import IncidentDetail from "@/components/IncidentDetail";
+import { useToast } from "@/hooks/use-toast";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import IntrusionDetection from "@/components/IntrusionDetection";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
@@ -30,48 +33,79 @@ const SIEM = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [inc, fw, al, bl] = await Promise.all([
-      supabase.from("security_incidents").select("*").order("created_at", { ascending: false }).limit(100),
-      supabase.from("firewall_logs").select("*").order("created_at", { ascending: false }).limit(100),
-      supabase.from("threat_alerts").select("*").order("created_at", { ascending: false }).limit(100),
-      supabase.from("blocked_ips").select("*").order("created_at", { ascending: false }).limit(50),
-    ]);
-    setIncidents(inc.data || []);
-    setFirewallLogs(fw.data || []);
-    setAlerts(al.data || []);
-    setBlockedIps(bl.data || []);
-    setLoading(false);
+    try {
+      const [inc, fw, al, bl] = await Promise.allSettled([
+        supabase.from("security_incidents").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("firewall_logs").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("threat_alerts").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("blocked_ips").select("*").order("created_at", { ascending: false }).limit(50),
+      ]);
+
+      if (inc.status === "fulfilled") setIncidents(inc.value.data || []);
+      if (fw.status === "fulfilled") setFirewallLogs(fw.value.data || []);
+      if (al.status === "fulfilled") setAlerts(al.value.data || []);
+      if (bl.status === "fulfilled") setBlockedIps(bl.value.data || []);
+
+      [inc, fw, al, bl].forEach((result, index) => {
+        if (result.status === "rejected") {
+          console.error("SIEM data load failed", index, result.reason);
+        }
+      });
+    } catch (error) {
+      console.error("SIEM loadData error", error);
+      toast({ title: "SIEM load failed", description: "Could not fetch event data", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useSupabaseRealtime("siem-realtime", [
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "threat_alerts",
+      callback: (payload) => {
+        if (payload?.new) setAlerts(prev => [payload.new, ...prev].slice(0, 100));
+      },
+    },
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "firewall_logs",
+      callback: (payload) => {
+        if (payload?.new) setFirewallLogs(prev => [payload.new, ...prev].slice(0, 100));
+      },
+    },
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "security_incidents",
+      callback: (payload) => {
+        if (payload?.new) setIncidents(prev => [payload.new, ...prev].slice(0, 100));
+      },
+    },
+  ], []);
 
   useEffect(() => {
     loadData();
-    const channel = supabase
-      .channel("siem-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "threat_alerts" }, (p) => {
-        setAlerts(prev => [p.new, ...prev].slice(0, 100));
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "firewall_logs" }, (p) => {
-        setFirewallLogs(prev => [p.new, ...prev].slice(0, 100));
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "security_incidents" }, (p) => {
-        setIncidents(prev => [p.new, ...prev].slice(0, 100));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [toast]);
 
-  const allEvents = [
-    ...incidents.map(i => ({ ...i, _source: "incident", _time: i.created_at })),
-    ...firewallLogs.map(f => ({ ...f, _source: "firewall", _time: f.created_at })),
-    ...alerts.map(a => ({ ...a, _source: "alert", _time: a.created_at })),
-  ].sort((a, b) => new Date(b._time).getTime() - new Date(a._time).getTime());
+  const allEvents = useMemo(() => {
+    return [
+      ...incidents.map(i => ({ ...i, _source: "incident", _time: i.created_at })),
+      ...firewallLogs.map(f => ({ ...f, _source: "firewall", _time: f.created_at })),
+      ...alerts.map(a => ({ ...a, _source: "alert", _time: a.created_at })),
+    ].sort((a, b) => new Date(b._time).getTime() - new Date(a._time).getTime());
+  }, [incidents, firewallLogs, alerts]);
 
-  const filtered = allEvents.filter(e => {
+  const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch = !q || JSON.stringify(e).toLowerCase().includes(q);
-    const matchesSev = severityFilter === "all" || e.severity === severityFilter;
-    return matchesSearch && matchesSev;
-  });
+    return allEvents.filter(e => {
+      const matchesSearch = !q || JSON.stringify(e).toLowerCase().includes(q);
+      const matchesSev = severityFilter === "all" || e.severity === severityFilter;
+      return matchesSearch && matchesSev;
+    });
+  }, [allEvents, searchQuery, severityFilter]);
 
   const stats = {
     totalEvents: allEvents.length,
@@ -171,6 +205,7 @@ const SIEM = () => {
             <TabsTrigger value="ids" className="font-mono text-xs">IDS/IPS</TabsTrigger>
             <TabsTrigger value="incidents" className="font-mono text-xs">Incidents</TabsTrigger>
             <TabsTrigger value="blocked" className="font-mono text-xs">Blocked IPs</TabsTrigger>
+            <TabsTrigger value="intrusion" className="font-mono text-xs">Intrusion Detection</TabsTrigger>
           </TabsList>
 
           <TabsContent value="unified">
@@ -324,6 +359,10 @@ const SIEM = () => {
                 {blockedIps.length === 0 && <div className="p-8 text-center text-xs text-muted-foreground">No blocked IPs</div>}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="intrusion">
+            <IntrusionDetection />
           </TabsContent>
         </Tabs>
 

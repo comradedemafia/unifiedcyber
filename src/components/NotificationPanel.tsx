@@ -1,8 +1,30 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, AlertTriangle, Shield, Flame, Bug, Volume2, VolumeX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+
+const simulatedNotificationTypes = [
+  { type: "DDoS Attack", severity: "critical", msg: "DDoS SYN flood detected from multiple sources" },
+  { type: "SQL Injection", severity: "high", msg: "SQL injection attempt blocked on /api/login" },
+  { type: "Brute Force", severity: "high", msg: "Multiple failed login attempts from single IP" },
+  { type: "Malware", severity: "critical", msg: "Malware signature detected in uploaded file" },
+  { type: "Port Scan", severity: "medium", msg: "Sequential port scanning detected" },
+  { type: "XSS Attempt", severity: "medium", msg: "Cross-site scripting payload blocked by WAF" },
+];
+
+const getSeverityIcon = (severity: string) => {
+  if (severity === "critical") return <Flame className="w-3.5 h-3.5 text-destructive" />;
+  if (severity === "high") return <AlertTriangle className="w-3.5 h-3.5 text-warning" />;
+  return <Shield className="w-3.5 h-3.5 text-accent" />;
+};
+
+const getSeverityBadge = (severity: string) => {
+  if (severity === "critical") return "destructive" as const;
+  if (severity === "high") return "default" as const;
+  return "secondary" as const;
+};
 
 interface Notification {
   id: string;
@@ -18,21 +40,34 @@ const NotificationPanel = () => {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<AudioContext | null>(null);
+
+  const playBeep = (severity: string) => {
+    if (!soundEnabled || severity !== "critical") return;
+
+    try {
+      const ctx = audioRef.current ?? new AudioContext();
+      audioRef.current = ctx;
+      if (ctx.state === "suspended") ctx.resume();
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "square";
+      gain.gain.value = 0.05;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch {
+      // Ignore audio failures for browsers that block autoplay.
+    }
+  };
 
   // Generate simulation notifications
   useEffect(() => {
-    const types = [
-      { type: "DDoS Attack", severity: "critical", msg: "DDoS SYN flood detected from multiple sources" },
-      { type: "SQL Injection", severity: "high", msg: "SQL injection attempt blocked on /api/login" },
-      { type: "Brute Force", severity: "high", msg: "Multiple failed login attempts from single IP" },
-      { type: "Malware", severity: "critical", msg: "Malware signature detected in uploaded file" },
-      { type: "Port Scan", severity: "medium", msg: "Sequential port scanning detected" },
-      { type: "XSS Attempt", severity: "medium", msg: "Cross-site scripting payload blocked by WAF" },
-    ];
-
     const addNotif = () => {
-      const t = types[Math.floor(Math.random() * types.length)];
+      const t = simulatedNotificationTypes[Math.floor(Math.random() * simulatedNotificationTypes.length)];
       const notif: Notification = {
         id: crypto.randomUUID(),
         type: t.type,
@@ -43,21 +78,7 @@ const NotificationPanel = () => {
         is_read: false,
       };
       setNotifications(prev => [notif, ...prev].slice(0, 50));
-
-      if (soundEnabled && t.severity === "critical") {
-        try {
-          const ctx = new AudioContext();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.frequency.value = 880;
-          osc.type = "square";
-          gain.gain.value = 0.05;
-          osc.start();
-          osc.stop(ctx.currentTime + 0.15);
-        } catch {}
-      }
+      playBeep(t.severity);
     };
 
     addNotif();
@@ -66,40 +87,33 @@ const NotificationPanel = () => {
   }, [soundEnabled]);
 
   // Subscribe to realtime alerts
-  useEffect(() => {
-    const channel = supabase
-      .channel("threat-alerts-notif")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "threat_alerts" }, (payload) => {
-        const row = payload.new as any;
-        setNotifications(prev => [{
-          id: row.id,
-          type: row.alert_type,
-          severity: row.severity,
-          message: row.message,
-          source_ip: row.source_ip,
-          timestamp: new Date(row.created_at).toLocaleTimeString("en-US", { hour12: false }),
-          is_read: false,
-        }, ...prev].slice(0, 50));
-      })
-      .subscribe();
+  useSupabaseRealtime(
+    "threat-alerts-notif",
+    [
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "threat_alerts",
+        callback: (payload) => {
+          const row = payload.new as any;
+          if (!row) return;
+          setNotifications(prev => [{
+            id: row.id || crypto.randomUUID(),
+            type: row.alert_type,
+            severity: row.severity,
+            message: row.message,
+            source_ip: row.source_ip,
+            timestamp: new Date(row.created_at).toLocaleTimeString("en-US", { hour12: false }),
+            is_read: false,
+          }, ...prev].slice(0, 50));
+        },
+      },
+    ],
+    []
+  );
 
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
   const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-
-  const sevIcon = (s: string) => {
-    if (s === "critical") return <Flame className="w-3.5 h-3.5 text-destructive" />;
-    if (s === "high") return <AlertTriangle className="w-3.5 h-3.5 text-warning" />;
-    return <Shield className="w-3.5 h-3.5 text-accent" />;
-  };
-
-  const sevBadge = (s: string) => {
-    if (s === "critical") return "destructive" as const;
-    if (s === "high") return "default" as const;
-    return "secondary" as const;
-  };
 
   return (
     <div className="relative">
@@ -154,11 +168,11 @@ const NotificationPanel = () => {
                       className={`p-3 border-b border-border/30 hover:bg-muted/20 transition-colors ${!n.is_read ? "bg-primary/5" : ""}`}
                     >
                       <div className="flex items-start gap-2">
-                        {sevIcon(n.severity)}
+                        {getSeverityIcon(n.severity)}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="text-[11px] font-mono font-semibold text-foreground truncate">{n.type}</span>
-                            <Badge variant={sevBadge(n.severity)} className="text-[8px] px-1.5 py-0">
+                            <Badge variant={getSeverityBadge(n.severity)} className="text-[8px] px-1.5 py-0">
                               {n.severity}
                             </Badge>
                           </div>

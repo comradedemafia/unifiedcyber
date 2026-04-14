@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent } from "@/utils/security";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,24 +22,67 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+
+    // Sanitize inputs
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedPassword = password; // Don't sanitize password as it might contain special chars
+    const sanitizedDisplayName = sanitizeInput(displayName);
+
+    // Validate email
+    if (!validateEmail(sanitizedEmail)) {
+      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
+
+    // Rate limiting check
+    if (!rateLimit(sanitizedEmail, 5, 15 * 60 * 1000)) { // 5 attempts per 15 minutes
+      logSecurityEvent('rate_limit_exceeded', { email: sanitizedEmail });
+      toast({ title: "Too Many Attempts", description: "Please wait before trying again.", variant: "destructive" });
+      return;
+    }
 
     if (isSignUp) {
-      const { error } = await signUp(email, password, displayName);
-      if (error) {
-        toast({ title: "Signup Error", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Account Created", description: "Please check your email to verify your account." });
+      // Validate password for signup
+      const passwordValidation = validatePassword(sanitizedPassword);
+      if (!passwordValidation.valid) {
+        toast({ title: "Weak Password", description: passwordValidation.errors.join(', '), variant: "destructive" });
+        return;
       }
-    } else {
-      const { error } = await signIn(email, password);
-      if (error) {
-        toast({ title: "Login Error", description: error.message, variant: "destructive" });
-      } else {
-        navigate("/dashboard");
+
+      if (!sanitizedDisplayName.trim()) {
+        toast({ title: "Display Name Required", description: "Please enter a display name.", variant: "destructive" });
+        return;
       }
     }
-    setLoading(false);
+
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(sanitizedEmail, sanitizedPassword, sanitizedDisplayName);
+        if (error) {
+          logSecurityEvent('signup_failed', { email: sanitizedEmail, error: error.message });
+          toast({ title: "Signup Error", description: error.message, variant: "destructive" });
+        } else {
+          logSecurityEvent('signup_success', { email: sanitizedEmail });
+          toast({ title: "Account Created", description: "Please check your email to verify your account." });
+        }
+      } else {
+        const { error } = await signIn(sanitizedEmail, sanitizedPassword);
+        if (error) {
+          logSecurityEvent('login_failed', { email: sanitizedEmail, error: error.message });
+          toast({ title: "Login Error", description: error.message, variant: "destructive" });
+        } else {
+          logSecurityEvent('login_success', { email: sanitizedEmail });
+          navigate("/dashboard");
+        }
+      }
+    } catch (error) {
+      logSecurityEvent('auth_error', { email: sanitizedEmail, error: error.message });
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

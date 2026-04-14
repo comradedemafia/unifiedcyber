@@ -2,29 +2,26 @@ import { useState, useEffect } from "react";
 import { Sun, Moon } from "lucide-react";
 import { motion } from "framer-motion";
 
+const getInitialTheme = () => {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem("ucsf-theme") !== "light";
+};
+
 const ThemeToggle = () => {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(getInitialTheme);
 
   useEffect(() => {
-    const saved = localStorage.getItem("ucsf-theme");
-    if (saved === "light") {
-      setIsDark(false);
+    if (isDark) {
+      document.documentElement.classList.remove("light-mode");
+    } else {
       document.documentElement.classList.add("light-mode");
     }
-  }, []);
+  }, [isDark]);
 
   const toggle = () => {
-    setIsDark(prev => {
-      const next = !prev;
-      if (next) {
-        document.documentElement.classList.remove("light-mode");
-        localStorage.setItem("ucsf-theme", "dark");
-      } else {
-        document.documentElement.classList.add("light-mode");
-        localStorage.setItem("ucsf-theme", "light");
-      }
-      return next;
-    });
+    const next = !isDark;
+    setIsDark(next);
+    localStorage.setItem("ucsf-theme", next ? "dark" : "light");
   };
 
   return (

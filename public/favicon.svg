@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <style>
+      .shield { fill: #00FFB4; }
+      .shield-bg { fill: #0F172A; }
+      .lock { fill: #0F172A; }
+    </style>
+  </defs>
+  <!-- Background -->
+  <rect class="shield-bg" width="256" height="256"/>
+  <!-- Shield with cybersecurity elements -->
+  <path d="M128 20 L180 40 L180 110 C180 160 128 200 128 200 C128 200 76 160 76 110 L76 40 L128 20 Z" class="shield" stroke="#00FFB4" stroke-width="2" fill="none"/>
+  <!-- Lock symbol inside shield -->
+  <rect x="108" y="90" width="40" height="50" rx="3" class="lock" stroke="#00FFB4" stroke-width="2" fill="none"/>
+  <circle cx="128" cy="85" r="8" class="lock" stroke="#00FFB4" stroke-width="2" fill="none"/>
+  <!-- Checkmark -->
+  <polyline points="110,130 120,145 145,120" stroke="#00FFB4" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
