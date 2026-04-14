@@ -148,64 +148,72 @@ export interface DefensePosture {
 export const checkSystemIntegrity = async (): Promise<DefensePosture> => {
   const activeDefenses: string[] = [];
   
-  // Check HTTPS
-  if (window.location.protocol === 'https:') {
-    activeDefenses.push('HTTPS');
+  try {
+    // Check HTTPS
+    if (window.location.protocol === 'https:') {
+      activeDefenses.push('HTTPS');
+    }
+
+    // Check CSP
+    const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    if (cspMeta) {
+      activeDefenses.push('CSP');
+    }
+
+    // Check for localStorage (basic security check)
+    try {
+      localStorage.setItem('_security_check', '1');
+      localStorage.removeItem('_security_check');
+      activeDefenses.push('Storage');
+    } catch (e) {
+      // Storage not available
+    }
+
+    // Create integrity checksum
+    const integrityChecksum = generateIntegrityChecksum();
+
+    const threatLevel: DefensePosture['threatLevel'] = 
+      activeDefenses.length >= 2 ? 'secure' : 
+      activeDefenses.length >= 1 ? 'guarded' : 
+      'critical';
+
+    return {
+      timestamp: Date.now(),
+      integrityChecksum,
+      configurationVersion: 1,
+      securityHeaders: {},
+      activeDefenses,
+      threatLevel
+    };
+  } catch (error) {
+    console.error('Error checking system integrity:', error);
+    return {
+      timestamp: Date.now(),
+      integrityChecksum: 'error-' + Date.now(),
+      configurationVersion: 1,
+      securityHeaders: {},
+      activeDefenses: [],
+      threatLevel: 'guarded'
+    };
   }
-
-  // Check CSP
-  const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-  if (cspMeta) {
-    activeDefenses.push('CSP');
-  }
-
-  // Check for security headers
-  const securityHeaders: Record<string, string> = {};
-  const headerChecks = [
-    'X-Content-Type-Options',
-    'X-Frame-Options',
-    'X-XSS-Protection',
-    'Strict-Transport-Security'
-  ];
-
-  headerChecks.forEach(header => {
-    // Note: browsers don't expose response headers in JS for security reasons
-    // This is a placeholder for server-side validation
-    securityHeaders[header] = 'pending-server-check';
-  });
-
-  // Create integrity checksum
-  const integrityChecksum = await generateIntegrityChecksum();
-
-  const threatLevel: DefensePosture['threatLevel'] = 
-    activeDefenses.length >= 2 ? 'secure' : 
-    activeDefenses.length >= 1 ? 'guarded' : 
-    'critical';
-
-  return {
-    timestamp: Date.now(),
-    integrityChecksum,
-    configurationVersion: 1,
-    securityHeaders,
-    activeDefenses,
-    threatLevel
-  };
 };
 
-const generateIntegrityChecksum = async (): Promise<string> => {
-  // Create a simple checksum of critical DOM elements
-  const criticalElements = document.querySelectorAll('[data-security-critical]');
-  let content = '';
-  criticalElements.forEach(el => {
-    content += el.outerHTML;
-  });
-  
-  // For demo: return SHA256-like hash (in production, use cryptographic library)
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content || 'system-base');
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+const generateIntegrityChecksum = (): string => {
+  try {
+    // Simple checksum without crypto.subtle (more compatible)
+    const content = document.documentElement.innerHTML.substring(0, 1000);
+    let hash = 0;
+    
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return Math.abs(hash).toString(16).padStart(32, '0').substring(0, 32);
+  } catch (error) {
+    return 'checksum-' + Date.now().toString(16);
+  }
 };
 
 // ============ EXTERNAL SYSTEM PROTECTION ============

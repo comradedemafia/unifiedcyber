@@ -24,31 +24,42 @@ const AdvancedThreatDetection = () => {
   const [anomalyScores, setAnomalyScores] = useState<AnomalyScore[]>([]);
   const [threatAlerts, setThreatAlerts] = useState<ThreatAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    analyzeSystemThreats();
-    const interval = setInterval(analyzeSystemThreats, 60000); // Every minute
-
-    return () => clearInterval(interval);
+    try {
+      analyzeSystemThreats();
+      const interval = setInterval(analyzeSystemThreats, 60000); // Every minute
+      return () => clearInterval(interval);
+    } catch (err) {
+      console.error('Error in AdvancedThreatDetection:', err);
+      setError('Failed to initialize threat detection');
+      setLoading(false);
+    }
   }, []);
 
   const analyzeSystemThreats = () => {
-    // Simulate getting activity logs
-    const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
-    
-    // Analyze current user behavior
-    const userId = localStorage.getItem('current_user_id') || 'anonymous';
-    const anomalyScore = analyzeUserBehavior(userId, logs);
-    
-    setAnomalyScores(prev => [anomalyScore, ...prev].slice(0, 10));
+    try {
+      // Simulate getting activity logs
+      const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
+      
+      // Analyze current user behavior
+      const userId = localStorage.getItem('current_user_id') || 'anonymous';
+      const anomalyScore = analyzeUserBehavior(userId, logs);
+      
+      setAnomalyScores(prev => [anomalyScore, ...prev].slice(0, 10));
 
-    // Generate threat alerts based on anomaly scores
-    if (anomalyScore.riskLevel !== 'normal') {
-      generateThreatAlert(anomalyScore);
+      // Generate threat alerts based on anomaly scores
+      if (anomalyScore.riskLevel !== 'normal') {
+        generateThreatAlert(anomalyScore);
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('Error analyzing threats:', err);
+      setError('Failed to analyze threats');
     }
-
-    setLoading(false);
   };
 
   const generateThreatAlert = (anomaly: AnomalyScore) => {
@@ -149,6 +160,25 @@ const AdvancedThreatDetection = () => {
         </CardHeader>
         <CardContent>
           <div className="text-center text-muted-foreground">Analyzing...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5" />
+            Advanced Threat Detection
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );

@@ -19,6 +19,7 @@ import SecurityMonitor from "@/components/SecurityMonitor";
 import DefensePosture from "@/components/DefensePosture";
 import AdvancedThreatDetection from "@/components/AdvancedThreatDetection";
 import ExternalSystemDefense from "@/components/ExternalSystemDefense";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -471,19 +472,21 @@ const Dashboard = () => {
         <SecurityMonitor />
 
         {/* Advanced Security Components */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-          <div className="lg:col-span-2">
-            <DefensePosture />
+        <ErrorBoundary>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+            <div className="lg:col-span-2">
+              <DefensePosture />
+            </div>
+            <div>
+              <AdvancedThreatDetection />
+            </div>
           </div>
-          <div>
-            <AdvancedThreatDetection />
-          </div>
-        </div>
 
-        {/* External System Defense */}
-        <div className="mt-8">
-          <ExternalSystemDefense />
-        </div>
+          {/* External System Defense */}
+          <div className="mt-8">
+            <ExternalSystemDefense />
+          </div>
+        </ErrorBoundary>
       </main>
     </div>
   );

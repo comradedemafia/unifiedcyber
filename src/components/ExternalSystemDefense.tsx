@@ -20,21 +20,34 @@ const ExternalSystemDefense = () => {
     apiKey: ''
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadSystems();
-    const interval = setInterval(() => {
-      monitorAllSystems();
-    }, 60000); // Check every minute
+    try {
+      loadSystems();
+      const interval = setInterval(() => {
+        monitorAllSystems();
+      }, 60000); // Check every minute
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    } catch (err) {
+      console.error('Error in ExternalSystemDefense:', err);
+      setError('Failed to load external systems');
+      setLoading(false);
+    }
   }, []);
 
   const loadSystems = () => {
-    const loadedSystems = protectedSystemsManager.getAll();
-    setSystems(loadedSystems);
-    setLoading(false);
+    try {
+      const loadedSystems = protectedSystemsManager.getAll();
+      setSystems(loadedSystems);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading systems:', err);
+      setError('Failed to load systems');
+      setLoading(false);
+    }
   };
 
   const addSystem = () => {
@@ -141,6 +154,25 @@ const ExternalSystemDefense = () => {
         </CardHeader>
         <CardContent>
           <div className="text-center text-muted-foreground">Loading...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            External System Defense
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );

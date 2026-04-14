@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSecurityEvent } from "@/utils/security";
-import { initializeSecurityDefenses } from "@/utils/advancedSecurity";
 
 interface AuthContextType {
   user: User | null;
@@ -46,11 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     let sessionCheckInterval: NodeJS.Timeout;
-
-    // Initialize security defenses on app load
-    initializeSecurityDefenses().catch(err => 
-      console.error('Failed to initialize security defenses:', err)
-    );
 
     const {
       data: { subscription },
