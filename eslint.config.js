@@ -27,6 +27,8 @@ export default tseslint.config(
       "no-case-declarations": "warn",
       "no-control-regex": "warn",
       "no-useless-escape": "warn",
+      "react-hooks/exhaustive-deps": "off",
+      "prefer-const": "warn",
     },
   },
 );
