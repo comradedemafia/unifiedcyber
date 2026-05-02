@@ -67,19 +67,24 @@ const IntrusionDetection = () => {
   }, []);
 
   // Monitor logs for threats
-  useSupabaseRealtime('firewall_logs', (payload) => {
-    if (payload.eventType === 'INSERT') {
-      const log = payload.new;
-      analyzeLogForThreats(log);
-    }
-  });
-
-  useSupabaseRealtime('threat_alerts', (payload) => {
-    if (payload.eventType === 'INSERT') {
-      const alert = payload.new;
-      analyzeAlertForThreats(alert);
-    }
-  });
+  useSupabaseRealtime('intrusion-detection', [
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'firewall_logs',
+      callback: (payload) => {
+        if (payload?.new) analyzeLogForThreats(payload.new);
+      },
+    },
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'threat_alerts',
+      callback: (payload) => {
+        if (payload?.new) analyzeAlertForThreats(payload.new);
+      },
+    },
+  ]);
 
   const analyzeLogForThreats = (log: any) => {
     threats.forEach(threat => {
