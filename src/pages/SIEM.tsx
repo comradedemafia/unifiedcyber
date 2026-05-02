@@ -18,6 +18,7 @@ import IncidentDetail from "@/components/IncidentDetail";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import IntrusionDetection from "@/components/IntrusionDetection";
+import RealtimeDiagnostics from "@/components/RealtimeDiagnostics";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
@@ -157,6 +158,8 @@ const SIEM = () => {
             </div>
           </div>
         </motion.div>
+
+        <RealtimeDiagnostics />
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
