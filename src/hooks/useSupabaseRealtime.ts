@@ -53,8 +53,7 @@ export const useSupabaseRealtime = (
 
     const bind = () => {
       subscriptions.forEach(({ event, schema, table, filter, callback }) => {
-        channel.on(
-          // @ts-expect-error postgres_changes is valid at runtime
+        (channel as any).on(
           "postgres_changes",
           filter ? { event, schema, table, filter } : { event, schema, table },
           wrapCallback(callback)
