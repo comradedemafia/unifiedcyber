@@ -18,6 +18,7 @@ import IncidentDetail from "@/components/IncidentDetail";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import IntrusionDetection from "@/components/IntrusionDetection";
+import RealtimeDiagnostics from "@/components/RealtimeDiagnostics";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
