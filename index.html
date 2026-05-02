@@ -14,7 +14,16 @@
     <meta name="twitter:image" content="https://images.unsplash.com/photo-1550439062-7d2c45e89040?w=1200&h=630&fit=crop&q=80" />
     <meta name="twitter:title" content="Unified Cyber Security Framework" />
     <meta name="twitter:description" content="Real-time threat detection across system, web, and network layers." />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: wss: data: blob:; frame-ancestors 'none';" />
+    <!--
+      CSP notes:
+      - 'unsafe-inline' on style-src is required by Tailwind/Radix runtime styles.
+      - 'unsafe-eval' on script-src is required by Vite dev HMR and some libs.
+      - For production, prefer per-build nonces or hashes; static index.html
+        cannot mint a fresh nonce per response, so we tighten everything else
+        instead: object-src/base-uri/form-action/frame-src locked down.
+      - CSP violations are surfaced in the UI via globalErrorReporter.ts.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: wss: data: blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" />
   </head>
