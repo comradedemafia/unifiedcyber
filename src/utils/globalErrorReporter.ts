@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { recordCspViolation } from "./realtimeStatus";
 
 /**
  * Captures CSP violations, uncaught errors, unhandled promise rejections,
@@ -23,6 +24,13 @@ export function installGlobalErrorReporter() {
       lineNumber: e.lineNumber,
     };
     console.error("[CSP] Violation:", detail);
+    recordCspViolation({
+      blockedURI: e.blockedURI || "(inline)",
+      violatedDirective: e.violatedDirective || "",
+      effectiveDirective: e.effectiveDirective || e.violatedDirective || "",
+      sourceFile: e.sourceFile,
+      lineNumber: e.lineNumber,
+    });
     toast.error("CSP blocked a resource", {
       description: `${e.effectiveDirective || e.violatedDirective} → ${e.blockedURI || "inline"}`,
       duration: 10000,
