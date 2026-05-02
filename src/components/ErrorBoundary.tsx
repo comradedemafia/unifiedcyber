@@ -1,55 +1,88 @@
-import React, { ReactNode } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import React from "react";
+import { toast } from "sonner";
 
 interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
+  children: React.ReactNode;
 }
 
 interface State {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
+  errorInfo: string;
 }
 
-class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false };
+/**
+ * Catches render errors in the React tree and shows a friendly fallback
+ * instead of a blank screen. Also logs full details to console + toast.
+ */
+export class ErrorBoundary extends React.Component<Props, State> {
+  state: State = { hasError: false, error: null, errorInfo: "" };
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error, errorInfo: "" };
   }
 
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    const componentStack = info.componentStack || "";
+    // Detailed console output to aid debugging (CSP/network/runtime).
+    console.group("%c[ErrorBoundary] Render error caught", "color:#ff5555;font-weight:bold");
+    console.error("Error:", error);
+    console.error("Message:", error.message);
+    console.error("Stack:", error.stack);
+    console.error("Component stack:", componentStack);
+    console.groupEnd();
+
+    // User-visible notification with hint about likely causes.
+    toast.error("Application error", {
+      description: error.message?.slice(0, 200) || "An unexpected error occurred.",
+      duration: 8000,
+    });
+
+    this.setState({ errorInfo: componentStack });
   }
 
-  componentDidCatch(error: Error) {
-    console.error('Error caught by boundary:', error);
-  }
+  handleReload = () => window.location.reload();
 
   render() {
     if (this.state.hasError) {
+      const err = this.state.error;
+      const isCsp = /Content Security Policy|CSP|blocked by/i.test(err?.message || "");
+      const isWs = /WebSocket|wss:/i.test(err?.message || "");
       return (
-        <div className="p-4 space-y-4">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="font-bold">Application Error</div>
-              <div className="text-sm mt-2">
-                {this.state.error?.message || 'An error occurred'}
-              </div>
+        <div className="min-h-screen flex items-center justify-center bg-background p-6">
+          <div className="max-w-2xl w-full border border-destructive/40 rounded-lg p-6 bg-card">
+            <h1 className="text-xl font-semibold text-destructive mb-2">
+              Something broke while rendering
+            </h1>
+            <p className="text-sm text-muted-foreground mb-4">
+              {isCsp && "A Content Security Policy rule is blocking a resource. "}
+              {isWs && "A WebSocket connection failed (often CSP / network). "}
+              The app caught the error so you don't see a blank screen.
+            </p>
+            <pre className="text-xs bg-muted/40 p-3 rounded overflow-auto max-h-60 whitespace-pre-wrap break-words">
+              <strong>{err?.name}: </strong>{err?.message}
+              {"\n\n"}
+              {err?.stack}
+              {this.state.errorInfo && `\n\nComponent stack:${this.state.errorInfo}`}
+            </pre>
+            <div className="mt-4 flex gap-2">
               <button
-                onClick={() => window.location.reload()}
-                className="mt-3 px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={this.handleReload}
+                className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:opacity-90"
               >
-                Reload Page
+                Reload
               </button>
-            </AlertDescription>
-          </Alert>
-          {this.props.fallback && <>{this.props.fallback}</>}
+              <button
+                onClick={() => this.setState({ hasError: false, error: null, errorInfo: "" })}
+                className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
-
     return this.props.children;
   }
 }
