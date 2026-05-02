@@ -65,7 +65,7 @@ export const logAuditEvent = async (entry: AuditLogEntry): Promise<boolean> => {
     // Get client IP if not provided (client-side detection)
     const ipAddress = entry.ip_address || await getClientIp();
 
-    const { error } = await supabase.from("security_logs").insert({
+    const { error } = await (supabase.from("security_logs" as never) as any).insert({
       user_id: entry.user_id,
       event_type: entry.event_type,
       action: entry.action,
@@ -165,7 +165,7 @@ export const logAuthEvent = async (
     const { data } = await supabase.auth.getUser();
     const ipAddress = await getClientIp();
 
-    const { error } = await supabase.rpc('log_auth_event', {
+    const { error } = await (supabase.rpc as any)('log_auth_event', {
       p_event_type: eventType,
       p_status: status,
       p_details: details || {},
@@ -194,7 +194,7 @@ export const getAuditLogs = async (
   limit: number = 100
 ) => {
   try {
-    const { data, error } = await supabase.rpc('get_audit_logs', {
+    const { data, error } = await (supabase.rpc as any)('get_audit_logs', {
       p_event_type: eventType,
       p_severity: severity,
       p_limit: limit,
@@ -220,8 +220,8 @@ export const getAuditLogsByResource = async (
   resourceId: string
 ) => {
   try {
-    const { data, error } = await supabase
-      .from('security_logs')
+    const { data, error } = await (supabase
+      .from('security_logs' as never) as any)
       .select('*')
       .eq('resource_type', resourceType)
       .eq('resource_id', resourceId)

@@ -21,6 +21,7 @@ import IntrusionDetection from "@/components/IntrusionDetection";
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState<any[]>([]);
   const [firewallLogs, setFirewallLogs] = useState<any[]>([]);
