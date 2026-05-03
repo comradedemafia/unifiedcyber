@@ -69,7 +69,7 @@ export function exportCspReport(
     tableWidth: 100,
   });
 
-  y = (doc as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
 
   // Violations
   doc.setFont("helvetica", "bold");
