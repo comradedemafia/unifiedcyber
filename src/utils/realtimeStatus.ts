@@ -181,16 +181,18 @@ export function recordCspViolation(v: Omit<CspViolation, "id" | "at">) {
   saveLS(LS_CSP, state.csp);
   emit();
 
-  // Auto-alert: burst detection
-  const cutoff = Date.now() - CSP_BURST_WINDOW_MS;
+  // Auto-alert: burst detection (uses dynamic thresholds)
+  const th = getThresholds();
+  const windowMs = th.cspBurstWindowSec * 1000;
+  const cutoff = Date.now() - windowMs;
   const recent = state.csp.filter((c) => c.at >= cutoff);
   if (
-    recent.length >= CSP_BURST_THRESHOLD &&
-    Date.now() - recentlyAlertedCsp.at > CSP_BURST_WINDOW_MS
+    recent.length >= th.cspBurstCount &&
+    Date.now() - recentlyAlertedCsp.at > windowMs
   ) {
     recentlyAlertedCsp.at = Date.now();
     toast.error("CSP violation burst detected", {
-      description: `${recent.length} violations in the last 60s — review diagnostics`,
+      description: `${recent.length} violations in the last ${th.cspBurstWindowSec}s — review diagnostics`,
       duration: 10000,
     });
   }
