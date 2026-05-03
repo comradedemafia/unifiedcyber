@@ -222,11 +222,13 @@ const pollingAlertedFor = new Map<string, number>();
 if (typeof window !== "undefined") {
   setInterval(() => {
     const now = Date.now();
+    const th = getThresholds();
+    const pollMs = th.pollingAlertSec * 1000;
     for (const ch of Object.values(state.channels)) {
       if (ch.mode === "polling" && ch.pollingSince) {
         const stuck = now - ch.pollingSince;
         const lastAlert = pollingAlertedFor.get(ch.channel) ?? 0;
-        if (stuck >= POLLING_ALERT_AFTER_MS && now - lastAlert > 5 * 60_000) {
+        if (stuck >= pollMs && now - lastAlert > 5 * 60_000) {
           pollingAlertedFor.set(ch.channel, now);
           toast.warning("Realtime stuck on polling", {
             description: `${ch.channel} has been polling for ${Math.round(stuck / 1000)}s`,
