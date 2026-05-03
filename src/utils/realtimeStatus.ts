@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { getThresholds } from "./diagnosticsThresholds";
 
 /**
  * Global store for realtime + CSP diagnostics.
