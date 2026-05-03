@@ -2,16 +2,7 @@ import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import StatsBar from "@/components/StatsBar";
 import SecurityLayers from "@/components/SecurityLayers";
-import LiveThreatFeed from "@/components/LiveThreatFeed";
-import LiveMonitoring from "@/components/LiveMonitoring";
-import LiveLogStream from "@/components/LiveLogStream";
-import SecurityTerminal from "@/components/SecurityTerminal";
-import IncidentResponse from "@/components/IncidentResponse";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
-import ThreatIntelligence from "@/components/ThreatIntelligence";
-import VulnerabilityScanner from "@/components/VulnerabilityScanner";
-import ResponsePlaybooks from "@/components/ResponsePlaybooks";
-import SecurityReports from "@/components/SecurityReports";
 import { Shield } from "lucide-react";
 
 const Index = () => {
@@ -21,18 +12,8 @@ const Index = () => {
       <HeroSection />
       <StatsBar />
       <SecurityLayers />
-      <LiveThreatFeed />
-      <LiveMonitoring />
-      <LiveLogStream />
-      <SecurityTerminal />
-      <IncidentResponse />
-      <ThreatIntelligence />
-      <VulnerabilityScanner />
-      <ResponsePlaybooks />
-      <SecurityReports />
       <ArchitectureDiagram />
 
-      {/* Footer */}
       <footer className="relative py-12 border-t border-border/30">
         <div className="absolute inset-0 bg-dots opacity-5" />
         <div className="container mx-auto px-6 relative">
@@ -51,7 +32,7 @@ const Index = () => {
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground/40 font-mono">
-              © 2026 Ruaha Catholic University
+              © 2026 Ruaha Catholic University · Sign in to access live operational tools
             </p>
           </div>
         </div>

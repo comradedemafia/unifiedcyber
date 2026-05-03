@@ -153,9 +153,42 @@ const SecurityTerminal = () => {
   };
 
   const processCommand = useCallback(
-    (cmd: string) => {
+    async (cmd: string) => {
       const tab = tabs.find((t) => t.id === activeTabId);
       if (!tab) return;
+
+      // --- Real network commands routed through edge function ---
+      const tokens = cmd.trim().split(/\s+/);
+      const head = tokens[0];
+      const realAliases: Record<string, string> = {
+        rcurl: "curl", rwget: "wget", rdig: "dig", rwhois: "whois",
+        rping: "ping", rnslookup: "nslookup", ipinfo: "ipinfo", myip: "myip",
+      };
+      if (head in realAliases) {
+        const realCmd = realAliases[head];
+        const realArgs = tokens.slice(1);
+        updateActiveTab((t) => ({
+          lines: [...t.lines, { text: `[*] executing '${realCmd}' via edge function...`, type: "output" as const }],
+        }));
+        try {
+          const { supabase } = await import("@/integrations/supabase/client");
+          const { data, error } = await supabase.functions.invoke("terminal-exec", {
+            body: { command: realCmd, args: realArgs },
+          });
+          const out: string[] = error ? [`error: ${error.message}`] : (data?.output ?? ["(no output)"]);
+          updateActiveTab((t) => ({
+            lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
+            state: { ...t.state, history: [...t.state.history, cmd] },
+          }));
+        } catch (err) {
+          updateActiveTab((t) => ({
+            lines: [...t.lines, { text: `error: ${(err as Error).message}`, type: "output" as const }, { text: "", type: "system" as const }],
+            state: { ...t.state, history: [...t.state.history, cmd] },
+          }));
+        }
+        return;
+      }
+
       const result = executeCommand(cmd, tab.state);
 
       if (result.output.length === 1 && result.output[0].startsWith("__EDITOR__:")) {

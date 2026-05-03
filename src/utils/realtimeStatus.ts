@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { getThresholds } from "./diagnosticsThresholds";
 
 /**
  * Global store for realtime + CSP diagnostics.
@@ -180,16 +181,18 @@ export function recordCspViolation(v: Omit<CspViolation, "id" | "at">) {
   saveLS(LS_CSP, state.csp);
   emit();
 
-  // Auto-alert: burst detection
-  const cutoff = Date.now() - CSP_BURST_WINDOW_MS;
+  // Auto-alert: burst detection (uses dynamic thresholds)
+  const th = getThresholds();
+  const windowMs = th.cspBurstWindowSec * 1000;
+  const cutoff = Date.now() - windowMs;
   const recent = state.csp.filter((c) => c.at >= cutoff);
   if (
-    recent.length >= CSP_BURST_THRESHOLD &&
-    Date.now() - recentlyAlertedCsp.at > CSP_BURST_WINDOW_MS
+    recent.length >= th.cspBurstCount &&
+    Date.now() - recentlyAlertedCsp.at > windowMs
   ) {
     recentlyAlertedCsp.at = Date.now();
     toast.error("CSP violation burst detected", {
-      description: `${recent.length} violations in the last 60s — review diagnostics`,
+      description: `${recent.length} violations in the last ${th.cspBurstWindowSec}s — review diagnostics`,
       duration: 10000,
     });
   }
@@ -219,11 +222,13 @@ const pollingAlertedFor = new Map<string, number>();
 if (typeof window !== "undefined") {
   setInterval(() => {
     const now = Date.now();
+    const th = getThresholds();
+    const pollMs = th.pollingAlertSec * 1000;
     for (const ch of Object.values(state.channels)) {
       if (ch.mode === "polling" && ch.pollingSince) {
         const stuck = now - ch.pollingSince;
         const lastAlert = pollingAlertedFor.get(ch.channel) ?? 0;
-        if (stuck >= POLLING_ALERT_AFTER_MS && now - lastAlert > 5 * 60_000) {
+        if (stuck >= pollMs && now - lastAlert > 5 * 60_000) {
           pollingAlertedFor.set(ch.channel, now);
           toast.warning("Realtime stuck on polling", {
             description: `${ch.channel} has been polling for ${Math.round(stuck / 1000)}s`,
