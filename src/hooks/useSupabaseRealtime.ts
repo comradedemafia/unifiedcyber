@@ -84,10 +84,19 @@ export const useSupabaseRealtime = (
       connect();
     };
 
+    const filterMeta = subscriptions[0]
+      ? {
+          event: subscriptions.map((s) => s.event).join(","),
+          schema: subscriptions[0].schema,
+          table: subscriptions.map((s) => s.table).join(","),
+        }
+      : undefined;
+
     setChannelStatus(channelName, {
       mode: "connecting",
       lastUpdate: null,
       firstPayloadAt: null,
+      filter: filterMeta,
       retry,
     });
 
