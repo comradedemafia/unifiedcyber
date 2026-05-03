@@ -185,6 +185,11 @@ export function subscribeWithFallback<T = Record<string, unknown>>(
     mode: "connecting",
     lastUpdate: null,
     firstPayloadAt: null,
+    filter: {
+      event: filter.event ?? "*",
+      schema: filter.schema ?? "public",
+      table: filter.table,
+    },
     retry: () => retryRealtime("user requested"),
   });
 
