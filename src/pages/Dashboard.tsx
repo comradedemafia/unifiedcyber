@@ -22,6 +22,16 @@ import DefensePosture from "@/components/DefensePosture";
 import AdvancedThreatDetection from "@/components/AdvancedThreatDetection";
 import ExternalSystemDefense from "@/components/ExternalSystemDefense";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import LiveThreatFeed from "@/components/LiveThreatFeed";
+import LiveMonitoring from "@/components/LiveMonitoring";
+import LiveLogStream from "@/components/LiveLogStream";
+import SecurityTerminal from "@/components/SecurityTerminal";
+import IncidentResponse from "@/components/IncidentResponse";
+import ThreatIntelligence from "@/components/ThreatIntelligence";
+import VulnerabilityScanner from "@/components/VulnerabilityScanner";
+import ResponsePlaybooks from "@/components/ResponsePlaybooks";
+import SecurityReports from "@/components/SecurityReports";
+import AttackSimulationPanel from "@/components/AttackSimulationPanel";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -484,6 +494,24 @@ const Dashboard = () => {
           {/* External System Defense */}
           <div className="mt-8">
             <ExternalSystemDefense />
+          </div>
+
+          {/* Attack simulation & layer verification */}
+          <div className="mt-8">
+            <AttackSimulationPanel />
+          </div>
+
+          {/* Operational tools (admin only — moved from landing) */}
+          <div className="mt-8 space-y-8">
+            <LiveThreatFeed />
+            <LiveMonitoring />
+            <LiveLogStream />
+            <SecurityTerminal />
+            <IncidentResponse />
+            <ThreatIntelligence />
+            <VulnerabilityScanner />
+            <ResponsePlaybooks />
+            <SecurityReports />
           </div>
         </ErrorBoundary>
       </main>
