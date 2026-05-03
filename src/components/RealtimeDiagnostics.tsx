@@ -13,6 +13,8 @@ import {
   type RealtimeMode,
 } from "@/utils/realtimeStatus";
 import { exportCspReport } from "@/utils/exportCspReport";
+import DiagnosticsTimeSeries from "./DiagnosticsTimeSeries";
+import DiagnosticsThresholdSettings from "./DiagnosticsThresholdSettings";
 
 const modeStyles: Record<RealtimeMode, { label: string; cls: string; icon: React.ReactNode }> = {
   connecting: { label: "Connecting", cls: "text-muted-foreground border-border", icon: <Activity className="w-3 h-3 animate-pulse" /> },
@@ -130,6 +132,17 @@ const RealtimeDiagnostics = () => {
           </Button>
         </div>
       </div>
+
+      <DiagnosticsThresholdSettings />
+
+      <DiagnosticsTimeSeries
+        channelFilter={channelFilter}
+        eventFilter={eventFilter}
+        schemaFilter={schemaFilter}
+        tableFilter={tableFilter}
+        fromTs={fromTs}
+        toTs={toTs}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Realtime status */}
