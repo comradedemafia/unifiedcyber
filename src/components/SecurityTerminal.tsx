@@ -161,6 +161,31 @@ const SecurityTerminal = () => {
     return `${st.user}@${st.hostname}: ${dir}`;
   };
 
+  const runRealCommand = useCallback(
+    async (realCmd: string, realArgs: string[], rawCmd: string) => {
+      updateActiveTab((t) => ({
+        lines: [...t.lines, { text: `[*] executing real '${realCmd}' via edge function...`, type: "output" as const }],
+      }));
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data, error } = await supabase.functions.invoke("terminal-exec", {
+          body: { command: realCmd, args: realArgs },
+        });
+        const out: string[] = error ? [`error: ${error.message}`] : (data?.output ?? ["(no output)"]);
+        updateActiveTab((t) => ({
+          lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
+          state: { ...t.state, history: [...t.state.history, rawCmd] },
+        }));
+      } catch (err) {
+        updateActiveTab((t) => ({
+          lines: [...t.lines, { text: `error: ${(err as Error).message}`, type: "output" as const }, { text: "", type: "system" as const }],
+          state: { ...t.state, history: [...t.state.history, rawCmd] },
+        }));
+      }
+    },
+    [updateActiveTab]
+  );
+
   const processCommand = useCallback(
     async (cmd: string) => {
       const tab = tabs.find((t) => t.id === activeTabId);
