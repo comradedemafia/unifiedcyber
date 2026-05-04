@@ -127,12 +127,17 @@ const DiagnosticsTimeSeries = ({
 
   return (
     <div className="rounded-lg border border-border bg-card/50 backdrop-blur-sm p-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-primary" /> Diagnostics Time-Series
+          {hotZones.length > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-destructive/15 text-destructive border border-destructive/30">
+              <AlertTriangle className="w-3 h-3" /> {hotZones.length} breach{hotZones.length === 1 ? "" : "es"}
+            </span>
+          )}
         </h3>
         <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-          {bucketSec}s buckets · {data.length} pts
+          {bucketSec}s buckets · {data.length} pts · CSP≥{Math.max(1, Math.ceil((thresholds.cspBurstCount * bucketSec) / thresholds.cspBurstWindowSec))}/bucket · poll≥{thresholds.pollingAlertSec}s
         </span>
       </div>
       <div className="h-48">
@@ -150,12 +155,31 @@ const DiagnosticsTimeSeries = ({
               }}
             />
             <Legend wrapperStyle={{ fontSize: 10 }} />
+            {hotZones.map((z, i) => (
+              <ReferenceArea
+                key={`hz-${i}`}
+                x1={z.from}
+                x2={z.to}
+                strokeOpacity={0.4}
+                stroke="hsl(var(--destructive))"
+                fill="hsl(var(--destructive))"
+                fillOpacity={0.12}
+                label={{ value: z.reason, position: "insideTop", fontSize: 9, fill: "hsl(var(--destructive))" }}
+              />
+            ))}
             <Line type="monotone" dataKey="csp" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} name="CSP violations" />
             <Line type="monotone" dataKey="polling" stroke="hsl(var(--warning))" strokeWidth={2} dot={false} name="Channels polling" />
             <Line type="monotone" dataKey="ws" stroke="hsl(var(--success))" strokeWidth={2} dot={false} name="Channels WebSocket" />
           </LineChart>
         </ResponsiveContainer>
       </div>
+      {hotZones.length > 0 && (
+        <div className="mt-2 text-[10px] font-mono text-muted-foreground space-y-0.5 max-h-16 overflow-y-auto">
+          {hotZones.slice(-3).map((z, i) => (
+            <div key={i}>⚠ {z.from} → {z.to}: {z.reason}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
