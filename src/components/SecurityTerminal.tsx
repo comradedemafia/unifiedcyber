@@ -755,6 +755,31 @@ const SecurityTerminal = () => {
         </motion.div>
         </div>
       </div>
+
+      <RealCommandConfirm
+        open={!!pendingReal}
+        command={pendingReal?.realCmd ?? ""}
+        args={pendingReal?.realArgs ?? []}
+        target={pendingReal?.target}
+        rememberTarget={rememberTarget}
+        onToggleRemember={setRememberTarget}
+        onCancel={() => {
+          if (pendingReal) {
+            updateActiveTab((t) => ({
+              lines: [...t.lines, { text: "[!] cancelled by user", type: "output" as const }, { text: "", type: "system" as const }],
+              state: { ...t.state, history: [...t.state.history, pendingReal.raw] },
+            }));
+          }
+          setPendingReal(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingReal) return;
+          if (rememberTarget && pendingReal.target) addToSessionAllowlist(pendingReal.target);
+          const p = pendingReal;
+          setPendingReal(null);
+          await runRealCommand(p.realCmd, p.realArgs, p.raw);
+        }}
+      />
     </section>
   );
 };
