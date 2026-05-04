@@ -7,6 +7,11 @@ import { openEditor, createEditorState, EditorState, EditorType } from "./termin
 import TerminalEditor from "./terminal/TerminalEditor";
 import MidnightCommander from "./terminal/MidnightCommander";
 import TerminalPreferences, { TerminalPrefs, defaultPrefs, themeColors } from "./terminal/TerminalPreferences";
+import RealCommandConfirm from "./terminal/RealCommandConfirm";
+import {
+  isAllowedCommand, extractTarget, isPrivateHost,
+  isHostAllowedThisSession, addToSessionAllowlist, ALLOWED_REAL_COMMANDS,
+} from "@/utils/realCommandPolicy";
 
 interface TerminalTab {
   id: number;
@@ -67,6 +72,10 @@ const SecurityTerminal = () => {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [prefs, setPrefs] = useState<TerminalPrefs>(defaultPrefs);
   const [clipboard, setClipboard] = useState("");
+  const [pendingReal, setPendingReal] = useState<{
+    realCmd: string; realArgs: string[]; target?: string; raw: string;
+  } | null>(null);
+  const [rememberTarget, setRememberTarget] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
