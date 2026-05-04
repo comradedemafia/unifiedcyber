@@ -176,25 +176,37 @@ const SecurityTerminal = () => {
       if (head in realAliases) {
         const realCmd = realAliases[head];
         const realArgs = tokens.slice(1);
-        updateActiveTab((t) => ({
-          lines: [...t.lines, { text: `[*] executing '${realCmd}' via edge function...`, type: "output" as const }],
-        }));
-        try {
-          const { supabase } = await import("@/integrations/supabase/client");
-          const { data, error } = await supabase.functions.invoke("terminal-exec", {
-            body: { command: realCmd, args: realArgs },
-          });
-          const out: string[] = error ? [`error: ${error.message}`] : (data?.output ?? ["(no output)"]);
+
+        // Allowlist check (defence-in-depth — also enforced server-side)
+        if (!isAllowedCommand(realCmd)) {
           updateActiveTab((t) => ({
-            lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
+            lines: [...t.lines, { text: `error: '${realCmd}' is not in the allowed real-command list (${ALLOWED_REAL_COMMANDS.join(", ")})`, type: "output" as const }, { text: "", type: "system" as const }],
             state: { ...t.state, history: [...t.state.history, cmd] },
           }));
-        } catch (err) {
-          updateActiveTab((t) => ({
-            lines: [...t.lines, { text: `error: ${(err as Error).message}`, type: "output" as const }, { text: "", type: "system" as const }],
-            state: { ...t.state, history: [...t.state.history, cmd] },
-          }));
+          return;
         }
+
+        const target = extractTarget(realCmd, realArgs);
+        if (isPrivateHost(target)) {
+          updateActiveTab((t) => ({
+            lines: [...t.lines, { text: `error: target '${target}' is on a private/internal range — refusing for safety`, type: "output" as const }, { text: "", type: "system" as const }],
+            state: { ...t.state, history: [...t.state.history, cmd] },
+          }));
+          return;
+        }
+
+        // If host already trusted this session, skip prompt; otherwise show modal.
+        if (target && !isHostAllowedThisSession(target)) {
+          setPendingReal({ realCmd, realArgs, target, raw: cmd });
+          return;
+        }
+        if (!target) {
+          // Commands like `myip` with no target — still confirm once.
+          setPendingReal({ realCmd, realArgs, raw: cmd });
+          return;
+        }
+
+        await runRealCommand(realCmd, realArgs, cmd);
         return;
       }
 
