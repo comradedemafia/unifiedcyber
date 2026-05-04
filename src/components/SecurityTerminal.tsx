@@ -7,6 +7,11 @@ import { openEditor, createEditorState, EditorState, EditorType } from "./termin
 import TerminalEditor from "./terminal/TerminalEditor";
 import MidnightCommander from "./terminal/MidnightCommander";
 import TerminalPreferences, { TerminalPrefs, defaultPrefs, themeColors } from "./terminal/TerminalPreferences";
+import RealCommandConfirm from "./terminal/RealCommandConfirm";
+import {
+  isAllowedCommand, extractTarget, isPrivateHost,
+  isHostAllowedThisSession, addToSessionAllowlist, ALLOWED_REAL_COMMANDS,
+} from "@/utils/realCommandPolicy";
 
 interface TerminalTab {
   id: number;
@@ -67,6 +72,10 @@ const SecurityTerminal = () => {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [prefs, setPrefs] = useState<TerminalPrefs>(defaultPrefs);
   const [clipboard, setClipboard] = useState("");
+  const [pendingReal, setPendingReal] = useState<{
+    realCmd: string; realArgs: string[]; target?: string; raw: string;
+  } | null>(null);
+  const [rememberTarget, setRememberTarget] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -152,6 +161,31 @@ const SecurityTerminal = () => {
     return `${st.user}@${st.hostname}: ${dir}`;
   };
 
+  const runRealCommand = useCallback(
+    async (realCmd: string, realArgs: string[], rawCmd: string) => {
+      updateActiveTab((t) => ({
+        lines: [...t.lines, { text: `[*] executing real '${realCmd}' via edge function...`, type: "output" as const }],
+      }));
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data, error } = await supabase.functions.invoke("terminal-exec", {
+          body: { command: realCmd, args: realArgs },
+        });
+        const out: string[] = error ? [`error: ${error.message}`] : (data?.output ?? ["(no output)"]);
+        updateActiveTab((t) => ({
+          lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
+          state: { ...t.state, history: [...t.state.history, rawCmd] },
+        }));
+      } catch (err) {
+        updateActiveTab((t) => ({
+          lines: [...t.lines, { text: `error: ${(err as Error).message}`, type: "output" as const }, { text: "", type: "system" as const }],
+          state: { ...t.state, history: [...t.state.history, rawCmd] },
+        }));
+      }
+    },
+    [updateActiveTab]
+  );
+
   const processCommand = useCallback(
     async (cmd: string) => {
       const tab = tabs.find((t) => t.id === activeTabId);
@@ -167,25 +201,37 @@ const SecurityTerminal = () => {
       if (head in realAliases) {
         const realCmd = realAliases[head];
         const realArgs = tokens.slice(1);
-        updateActiveTab((t) => ({
-          lines: [...t.lines, { text: `[*] executing '${realCmd}' via edge function...`, type: "output" as const }],
-        }));
-        try {
-          const { supabase } = await import("@/integrations/supabase/client");
-          const { data, error } = await supabase.functions.invoke("terminal-exec", {
-            body: { command: realCmd, args: realArgs },
-          });
-          const out: string[] = error ? [`error: ${error.message}`] : (data?.output ?? ["(no output)"]);
+
+        // Allowlist check (defence-in-depth — also enforced server-side)
+        if (!isAllowedCommand(realCmd)) {
           updateActiveTab((t) => ({
-            lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
+            lines: [...t.lines, { text: `error: '${realCmd}' is not in the allowed real-command list (${ALLOWED_REAL_COMMANDS.join(", ")})`, type: "output" as const }, { text: "", type: "system" as const }],
             state: { ...t.state, history: [...t.state.history, cmd] },
           }));
-        } catch (err) {
-          updateActiveTab((t) => ({
-            lines: [...t.lines, { text: `error: ${(err as Error).message}`, type: "output" as const }, { text: "", type: "system" as const }],
-            state: { ...t.state, history: [...t.state.history, cmd] },
-          }));
+          return;
         }
+
+        const target = extractTarget(realCmd, realArgs);
+        if (isPrivateHost(target)) {
+          updateActiveTab((t) => ({
+            lines: [...t.lines, { text: `error: target '${target}' is on a private/internal range — refusing for safety`, type: "output" as const }, { text: "", type: "system" as const }],
+            state: { ...t.state, history: [...t.state.history, cmd] },
+          }));
+          return;
+        }
+
+        // If host already trusted this session, skip prompt; otherwise show modal.
+        if (target && !isHostAllowedThisSession(target)) {
+          setPendingReal({ realCmd, realArgs, target, raw: cmd });
+          return;
+        }
+        if (!target) {
+          // Commands like `myip` with no target — still confirm once.
+          setPendingReal({ realCmd, realArgs, raw: cmd });
+          return;
+        }
+
+        await runRealCommand(realCmd, realArgs, cmd);
         return;
       }
 
@@ -709,6 +755,31 @@ const SecurityTerminal = () => {
         </motion.div>
         </div>
       </div>
+
+      <RealCommandConfirm
+        open={!!pendingReal}
+        command={pendingReal?.realCmd ?? ""}
+        args={pendingReal?.realArgs ?? []}
+        target={pendingReal?.target}
+        rememberTarget={rememberTarget}
+        onToggleRemember={setRememberTarget}
+        onCancel={() => {
+          if (pendingReal) {
+            updateActiveTab((t) => ({
+              lines: [...t.lines, { text: "[!] cancelled by user", type: "output" as const }, { text: "", type: "system" as const }],
+              state: { ...t.state, history: [...t.state.history, pendingReal.raw] },
+            }));
+          }
+          setPendingReal(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingReal) return;
+          if (rememberTarget && pendingReal.target) addToSessionAllowlist(pendingReal.target);
+          const p = pendingReal;
+          setPendingReal(null);
+          await runRealCommand(p.realCmd, p.realArgs, p.raw);
+        }}
+      />
     </section>
   );
 };
