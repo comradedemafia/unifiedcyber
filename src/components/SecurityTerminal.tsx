@@ -506,6 +506,9 @@ const SecurityTerminal = () => {
         {prefsOpen && (
           <TerminalPreferences prefs={prefs} onSave={setPrefs} onClose={() => setPrefsOpen(false)} />
         )}
+        <div className="max-w-4xl mx-auto mb-4">
+          <TerminalAllowlistManager />
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
