@@ -242,6 +242,10 @@ if (typeof window !== "undefined") {
               ? { label: "Retry now", onClick: ch.retry }
               : undefined,
           });
+          void logTerminalAudit({
+            event_type: "threshold_breach", severity: "warning",
+            details: { kind: "polling_stuck", channel: ch.channel, stuck_sec: Math.round(stuck / 1000) },
+          });
         }
       } else {
         pollingAlertedFor.delete(ch.channel);
