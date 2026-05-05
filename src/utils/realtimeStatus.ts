@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { getThresholds } from "./diagnosticsThresholds";
+import { logTerminalAudit } from "./terminalAudit";
 
 /**
  * Global store for realtime + CSP diagnostics.
@@ -195,6 +196,10 @@ export function recordCspViolation(v: Omit<CspViolation, "id" | "at">) {
       description: `${recent.length} violations in the last ${th.cspBurstWindowSec}s — review diagnostics`,
       duration: 10000,
     });
+    void logTerminalAudit({
+      event_type: "threshold_breach", severity: "critical",
+      details: { kind: "csp_burst", count: recent.length, window_sec: th.cspBurstWindowSec },
+    });
   }
 }
 
@@ -236,6 +241,10 @@ if (typeof window !== "undefined") {
             action: ch.retry
               ? { label: "Retry now", onClick: ch.retry }
               : undefined,
+          });
+          void logTerminalAudit({
+            event_type: "threshold_breach", severity: "warning",
+            details: { kind: "polling_stuck", channel: ch.channel, stuck_sec: Math.round(stuck / 1000) },
           });
         }
       } else {

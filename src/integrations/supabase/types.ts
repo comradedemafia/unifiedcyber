@@ -146,6 +146,48 @@ export type Database = {
         }
         Relationships: []
       }
+      terminal_audit_log: {
+        Row: {
+          command: string | null
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          result: string | null
+          severity: string
+          target: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          command?: string | null
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          result?: string | null
+          severity?: string
+          target?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          command?: string | null
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          result?: string | null
+          severity?: string
+          target?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       threat_alerts: {
         Row: {
           alert_type: string

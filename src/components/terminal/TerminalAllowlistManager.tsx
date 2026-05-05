@@ -1,0 +1,86 @@
+import { useState, useEffect } from "react";
+import { Globe, Trash2, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  getSessionAllowlist,
+  removeFromSessionAllowlist,
+  clearSessionAllowlist,
+} from "@/utils/realCommandPolicy";
+
+const TerminalAllowlistManager = () => {
+  const [hosts, setHosts] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+
+  const refresh = () => setHosts(getSessionAllowlist());
+  useEffect(() => {
+    refresh();
+    const i = setInterval(refresh, 2000);
+    return () => clearInterval(i);
+  }, []);
+
+  return (
+    <div className="bg-card border border-border/50 rounded-xl">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between p-3 text-left"
+      >
+        <span className="flex items-center gap-2 text-xs font-mono text-foreground">
+          <ShieldCheck className="w-4 h-4 text-primary" />
+          Session-trusted hosts ({hosts.length})
+        </span>
+        <span className="text-[10px] font-mono text-muted-foreground">
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-border/50 p-3 space-y-2">
+          {hosts.length === 0 ? (
+            <p className="text-[11px] font-mono text-muted-foreground py-2">
+              No trusted hosts yet. They appear after you confirm an r-command for a host.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {hosts.map((h) => (
+                  <div
+                    key={h}
+                    className="flex items-center gap-2 px-2 py-1.5 bg-muted/10 rounded"
+                  >
+                    <Globe className="w-3 h-3 text-primary/60 shrink-0" />
+                    <span className="text-[11px] font-mono text-foreground flex-1 truncate">
+                      {h}
+                    </span>
+                    <button
+                      onClick={() => {
+                        removeFromSessionAllowlist(h);
+                        refresh();
+                      }}
+                      className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                      title="Revoke"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full text-[11px] font-mono gap-1"
+                onClick={() => {
+                  clearSessionAllowlist();
+                  refresh();
+                }}
+              >
+                <Trash2 className="w-3 h-3" /> Clear all
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TerminalAllowlistManager;
