@@ -166,6 +166,22 @@ const SecurityTerminal = () => {
 
   const runRealCommand = useCallback(
     async (realCmd: string, realArgs: string[], rawCmd: string) => {
+      // Client-side rate limit (defence-in-depth alongside server limiter)
+      const rl = consumeToken();
+      if (!rl.ok) {
+        const wait = Math.ceil(rl.retryInMs / 1000);
+        updateActiveTab((t) => ({
+          lines: [...t.lines, { text: `error: rate limit exceeded — retry in ${wait}s`, type: "output" as const }, { text: "", type: "system" as const }],
+          state: { ...t.state, history: [...t.state.history, rawCmd] },
+        }));
+        await logTerminalAudit({
+          event_type: "rate_limit", command: realCmd, target: extractTarget(realCmd as any, realArgs),
+          result: "blocked", severity: "warning", details: { retry_in_ms: rl.retryInMs },
+        });
+        return;
+      }
+
+      const target = extractTarget(realCmd as any, realArgs);
       updateActiveTab((t) => ({
         lines: [...t.lines, { text: `[*] executing real '${realCmd}' via edge function...`, type: "output" as const }],
       }));
@@ -179,11 +195,22 @@ const SecurityTerminal = () => {
           lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
           state: { ...t.state, history: [...t.state.history, rawCmd] },
         }));
+        await logTerminalAudit({
+          event_type: "real_command", command: `${realCmd} ${realArgs.join(" ")}`.trim(),
+          target, result: error ? "error" : "success",
+          severity: error ? "warning" : "info",
+          details: { lines: out.length, error: error?.message },
+        });
       } catch (err) {
         updateActiveTab((t) => ({
           lines: [...t.lines, { text: `error: ${(err as Error).message}`, type: "output" as const }, { text: "", type: "system" as const }],
           state: { ...t.state, history: [...t.state.history, rawCmd] },
         }));
+        await logTerminalAudit({
+          event_type: "real_command", command: `${realCmd} ${realArgs.join(" ")}`.trim(),
+          target, result: "error", severity: "warning",
+          details: { error: (err as Error).message },
+        });
       }
     },
     [updateActiveTab]
