@@ -196,6 +196,10 @@ export function recordCspViolation(v: Omit<CspViolation, "id" | "at">) {
       description: `${recent.length} violations in the last ${th.cspBurstWindowSec}s — review diagnostics`,
       duration: 10000,
     });
+    void logTerminalAudit({
+      event_type: "threshold_breach", severity: "critical",
+      details: { kind: "csp_burst", count: recent.length, window_sec: th.cspBurstWindowSec },
+    });
   }
 }
 
