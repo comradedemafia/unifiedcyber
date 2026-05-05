@@ -2,11 +2,56 @@
 // Supports: curl, wget, dig, whois, ping (HTTP HEAD), http, ipinfo
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
+// In-memory token bucket per client IP — resets on cold start.
+// 20 requests / minute, burst 6. Defence-in-depth alongside client-side limiter.
+interface Bucket { tokens: number; updated: number; }
+const buckets = new Map<string, Bucket>();
+const MAX_TOKENS = 6;
+const REFILL_PER_SEC = 20 / 60;
+
+function checkRate(ip: string): { ok: boolean; retryInMs: number } {
+  const now = Date.now();
+  const b = buckets.get(ip) ?? { tokens: MAX_TOKENS, updated: now };
+  const elapsed = (now - b.updated) / 1000;
+  b.tokens = Math.min(MAX_TOKENS, b.tokens + elapsed * REFILL_PER_SEC);
+  b.updated = now;
+  if (b.tokens >= 1) {
+    b.tokens -= 1;
+    buckets.set(ip, b);
+    return { ok: true, retryInMs: 0 };
+  }
+  buckets.set(ip, b);
+  const need = 1 - b.tokens;
+  return { ok: false, retryInMs: Math.ceil((need / REFILL_PER_SEC) * 1000) };
+}
+
+const ALLOWED = new Set(["curl","wget","dig","whois","ping","nslookup","ipinfo","myip"]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // --- Rate limit (per client IP) ---
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    || req.headers.get("cf-connecting-ip")
+    || "unknown";
+  const rl = checkRate(ip);
+  if (!rl.ok) {
+    return new Response(JSON.stringify({
+      output: [`error: rate limit exceeded — retry in ${Math.ceil(rl.retryInMs / 1000)}s`],
+    }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rl.retryInMs / 1000)) },
+    });
+  }
+
   try {
     const { command, args } = await req.json();
+    if (!ALLOWED.has(command)) {
+      return new Response(JSON.stringify({ output: [`error: '${command}' is not allowed`] }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const lines: string[] = [];
     const t0 = Date.now();
 
