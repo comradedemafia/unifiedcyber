@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
-import { Globe, Trash2, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Globe, Trash2, ShieldCheck, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   getSessionAllowlist,
   removeFromSessionAllowlist,
   clearSessionAllowlist,
+  exportAllowlistJSON,
+  importAllowlistJSON,
 } from "@/utils/realCommandPolicy";
 
 const TerminalAllowlistManager = () => {
   const [hosts, setHosts] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => setHosts(getSessionAllowlist());
   useEffect(() => {
@@ -17,6 +21,25 @@ const TerminalAllowlistManager = () => {
     const i = setInterval(refresh, 2000);
     return () => clearInterval(i);
   }, []);
+
+  const handleExport = () => {
+    const blob = new Blob([exportAllowlistJSON()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `terminal-allowlist-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${hosts.length} hosts`);
+  };
+
+  const handleImport = async (file: File) => {
+    const text = await file.text();
+    const r = importAllowlistJSON(text, "merge");
+    refresh();
+    if (r.errors.length) toast.error(r.errors.join("; "));
+    else toast.success(`Imported: ${r.added} added, ${r.skipped} skipped`);
+  };
 
   return (
     <div className="bg-card border border-border/50 rounded-xl">
