@@ -69,3 +69,14 @@ export function isHostAllowedThisSession(host?: string): boolean {
   if (!host) return false;
   return getSessionAllowlist().includes(host.toLowerCase());
 }
+
+export function removeFromSessionAllowlist(host: string) {
+  const next = getSessionAllowlist().filter((h) => h !== host.toLowerCase());
+  try {
+    sessionStorage.setItem(SESSION_ALLOW_KEY, JSON.stringify(next));
+  } catch { /* */ }
+}
+
+export function clearSessionAllowlist() {
+  try { sessionStorage.removeItem(SESSION_ALLOW_KEY); } catch { /* */ }
+}
