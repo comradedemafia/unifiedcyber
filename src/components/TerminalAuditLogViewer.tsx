@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { ScrollText, RefreshCw, Filter } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { ScrollText, RefreshCw, Filter, Search, ChevronLeft, ChevronRight, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 
 interface AuditRow {
   id: string;
@@ -16,6 +18,8 @@ interface AuditRow {
   created_at: string;
 }
 
+const PAGE_SIZE = 20;
+
 const sevColor = (s: string) =>
   s === "critical" ? "destructive" : s === "warning" ? "default" : "secondary";
 
@@ -23,23 +27,60 @@ const TerminalAuditLogViewer = () => {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [live, setLive] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     let q: any = (supabase.from("terminal_audit_log" as never) as any)
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
     if (filter !== "all") q = q.eq("event_type", filter);
-    const { data } = await q;
+    if (search.trim()) {
+      const s = `%${search.trim()}%`;
+      q = q.or(`command.ilike.${s},target.ilike.${s},user_email.ilike.${s}`);
+    }
+    const { data, count } = await q;
     setRows((data as AuditRow[]) || []);
+    setTotal(count ?? 0);
     setLoading(false);
-  };
+  }, [filter, search, page]);
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  useEffect(() => { load(); }, [load]);
+
+  // Live updates via realtime — prepend new rows when on first page & no filters
+  useSupabaseRealtime(
+    "terminal-audit-live",
+    [
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "terminal_audit_log",
+        callback: (payload) => {
+          if (!live) return;
+          const row = payload.new as AuditRow;
+          if (!row) return;
+          // respect filter
+          if (filter !== "all" && row.event_type !== filter) return;
+          if (search.trim()) {
+            const s = search.trim().toLowerCase();
+            const hay = `${row.command ?? ""} ${row.target ?? ""} ${row.user_email ?? ""}`.toLowerCase();
+            if (!hay.includes(s)) return;
+          }
+          if (page === 0) {
+            setRows((prev) => [row, ...prev].slice(0, PAGE_SIZE));
+          }
+          setTotal((t) => t + 1);
+        },
+      },
+    ],
+    [live, filter, search, page]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="bg-card border border-border/50 rounded-xl p-5">
@@ -48,12 +89,17 @@ const TerminalAuditLogViewer = () => {
           <ScrollText className="w-4 h-4 text-primary" />
           Terminal Audit Log
           <Badge variant="secondary" className="text-[9px]">admin only</Badge>
+          {live && (
+            <Badge variant="default" className="text-[9px] gap-1">
+              <Radio className="w-2.5 h-2.5 animate-pulse" /> LIVE
+            </Badge>
+          )}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter className="w-3 h-3 text-muted-foreground" />
           <select
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => { setPage(0); setFilter(e.target.value); }}
             className="bg-muted/20 border border-border/50 rounded px-2 py-1 text-[11px] font-mono"
           >
             <option value="all">All events</option>
@@ -62,6 +108,18 @@ const TerminalAuditLogViewer = () => {
             <option value="rate_limit">Rate limit</option>
             <option value="command_blocked">Blocked</option>
           </select>
+          <div className="relative">
+            <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => { setPage(0); setSearch(e.target.value); }}
+              placeholder="search command/target/user…"
+              className="h-7 pl-7 text-[11px] font-mono w-52"
+            />
+          </div>
+          <Button size="sm" variant={live ? "default" : "outline"} onClick={() => setLive(!live)} className="text-[11px] gap-1">
+            <Radio className="w-3 h-3" /> {live ? "Live" : "Paused"}
+          </Button>
           <Button size="sm" variant="outline" onClick={load} className="text-[11px] gap-1">
             <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> Refresh
           </Button>
@@ -85,7 +143,7 @@ const TerminalAuditLogViewer = () => {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center py-6 text-muted-foreground">
-                  No audit events yet.
+                  No audit events match.
                 </td>
               </tr>
             ) : (
@@ -109,6 +167,21 @@ const TerminalAuditLogViewer = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+        <span className="text-[10px] font-mono text-muted-foreground">
+          Page {page + 1} of {totalPages} — {total} total events
+        </span>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="h-7 px-2">
+            <ChevronLeft className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="outline" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="h-7 px-2">
+            <ChevronRight className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
     </div>
   );
