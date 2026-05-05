@@ -513,6 +513,7 @@ const Dashboard = () => {
             <VulnerabilityScanner />
             <ResponsePlaybooks />
             <SecurityReports />
+            <TerminalAuditLogViewer />
           </div>
         </ErrorBoundary>
       </main>
