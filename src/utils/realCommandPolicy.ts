@@ -80,3 +80,38 @@ export function removeFromSessionAllowlist(host: string) {
 export function clearSessionAllowlist() {
   try { sessionStorage.removeItem(SESSION_ALLOW_KEY); } catch { /* */ }
 }
+
+export function exportAllowlistJSON(): string {
+  return JSON.stringify(
+    { version: 1, exported_at: new Date().toISOString(), hosts: getSessionAllowlist() },
+    null, 2
+  );
+}
+
+export interface ImportResult { added: number; skipped: number; errors: string[]; }
+
+export function importAllowlistJSON(json: string, mode: "merge" | "replace" = "merge"): ImportResult {
+  const result: ImportResult = { added: 0, skipped: 0, errors: [] };
+  let parsed: any;
+  try { parsed = JSON.parse(json); } catch { result.errors.push("Invalid JSON"); return result; }
+
+  const hosts: unknown = Array.isArray(parsed) ? parsed : parsed?.hosts;
+  if (!Array.isArray(hosts)) { result.errors.push("Expected array or {hosts:[...]}"); return result; }
+
+  const valid = /^[a-z0-9.-]+(\.[a-z]{2,})$/i;
+  const existing = new Set(mode === "replace" ? [] : getSessionAllowlist());
+  for (const h of hosts) {
+    if (typeof h !== "string" || !valid.test(h) || PRIVATE_HOST_PATTERNS.some((rx) => rx.test(h))) {
+      result.skipped++; continue;
+    }
+    const low = h.toLowerCase();
+    if (existing.has(low)) { result.skipped++; continue; }
+    existing.add(low); result.added++;
+  }
+  try {
+    sessionStorage.setItem(SESSION_ALLOW_KEY, JSON.stringify([...existing]));
+  } catch (e) {
+    result.errors.push("Failed to persist to sessionStorage");
+  }
+  return result;
+}
