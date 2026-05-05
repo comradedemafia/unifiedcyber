@@ -8,10 +8,13 @@ import TerminalEditor from "./terminal/TerminalEditor";
 import MidnightCommander from "./terminal/MidnightCommander";
 import TerminalPreferences, { TerminalPrefs, defaultPrefs, themeColors } from "./terminal/TerminalPreferences";
 import RealCommandConfirm from "./terminal/RealCommandConfirm";
+import TerminalAllowlistManager from "./terminal/TerminalAllowlistManager";
 import {
   isAllowedCommand, extractTarget, isPrivateHost,
   isHostAllowedThisSession, addToSessionAllowlist, ALLOWED_REAL_COMMANDS,
 } from "@/utils/realCommandPolicy";
+import { consumeToken } from "@/utils/terminalRateLimit";
+import { logTerminalAudit } from "@/utils/terminalAudit";
 
 interface TerminalTab {
   id: number;
