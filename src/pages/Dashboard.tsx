@@ -32,6 +32,7 @@ import VulnerabilityScanner from "@/components/VulnerabilityScanner";
 import ResponsePlaybooks from "@/components/ResponsePlaybooks";
 import SecurityReports from "@/components/SecurityReports";
 import AttackSimulationPanel from "@/components/AttackSimulationPanel";
+import TerminalAuditLogViewer from "@/components/TerminalAuditLogViewer";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
