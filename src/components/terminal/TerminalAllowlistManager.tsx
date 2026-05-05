@@ -58,9 +58,37 @@ const TerminalAllowlistManager = () => {
 
       {open && (
         <div className="border-t border-border/50 p-3 space-y-2">
+          {/* Import / Export controls always visible */}
+          <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+            <Button
+              size="sm" variant="outline"
+              className="text-[11px] font-mono gap-1 flex-1"
+              onClick={handleExport}
+              disabled={hosts.length === 0}
+            >
+              <Download className="w-3 h-3" /> Export JSON
+            </Button>
+            <Button
+              size="sm" variant="outline"
+              className="text-[11px] font-mono gap-1 flex-1"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="w-3 h-3" /> Import JSON
+            </Button>
+            <input
+              ref={fileRef} type="file" accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImport(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
           {hosts.length === 0 ? (
             <p className="text-[11px] font-mono text-muted-foreground py-2">
-              No trusted hosts yet. They appear after you confirm an r-command for a host.
+              No trusted hosts yet. They appear after you confirm an r-command for a host, or import a JSON list.
             </p>
           ) : (
             <>
