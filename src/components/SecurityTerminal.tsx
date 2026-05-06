@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Terminal, X, Minus, Square, Menu, Plus, Search, ChevronDown } from "lucide-react";
 import { createFileSystem, FSNode } from "./terminal/kaliFileSystem";
@@ -190,16 +191,43 @@ const SecurityTerminal = () => {
         const { data, error } = await supabase.functions.invoke("terminal-exec", {
           body: { command: realCmd, args: realArgs },
         });
-        const out: string[] = error ? [`error: ${error.message}`] : (data?.output ?? ["(no output)"]);
+
+        // The edge function returns { output: ["error: ..."] } with status 4xx
+        // for validation/rate-limit failures. supabase-js surfaces non-2xx as
+        // `error` while still parsing the JSON body into `data`.
+        const rawLines: string[] = (data?.output as string[] | undefined)
+          ?? (error ? [`error: ${error.message}`] : ["(no output)"]);
+        const isFailure = !!error || rawLines.some((l) => /^error:/i.test(l));
+        const failureMsg = isFailure
+          ? rawLines.find((l) => /^error:/i.test(l))?.replace(/^error:\s*/i, "") ?? error?.message
+          : undefined;
+
+        const display = isFailure && failureMsg
+          ? [
+              `✗ command rejected: ${failureMsg}`,
+              `  hint: only safe read-only verbs and public hosts are allowed.`,
+              `  example: rcurl -I https://example.com`,
+            ]
+          : rawLines;
+
         updateActiveTab((t) => ({
-          lines: [...t.lines, ...out.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
+          lines: [...t.lines, ...display.map((text) => ({ text, type: "output" as const })), { text: "", type: "system" as const }],
           state: { ...t.state, history: [...t.state.history, rawCmd] },
         }));
+
+        if (isFailure) toast.error(`Command blocked: ${failureMsg}`);
+
         await logTerminalAudit({
-          event_type: "real_command", command: `${realCmd} ${realArgs.join(" ")}`.trim(),
-          target, result: error ? "error" : "success",
-          severity: error ? "warning" : "info",
-          details: { lines: out.length, error: error?.message },
+          event_type: isFailure ? "command_blocked" : "real_command",
+          command: `${realCmd} ${realArgs.join(" ")}`.trim(),
+          target,
+          result: isFailure ? "blocked" : "success",
+          severity: isFailure ? "warning" : "info",
+          details: {
+            args: realArgs,
+            lines: rawLines.length,
+            error: failureMsg,
+          },
         });
       } catch (err) {
         updateActiveTab((t) => ({
@@ -209,7 +237,7 @@ const SecurityTerminal = () => {
         await logTerminalAudit({
           event_type: "real_command", command: `${realCmd} ${realArgs.join(" ")}`.trim(),
           target, result: "error", severity: "warning",
-          details: { error: (err as Error).message },
+          details: { args: realArgs, error: (err as Error).message },
         });
       }
     },
