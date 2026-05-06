@@ -2,27 +2,42 @@
 // Supports: curl, wget, dig, whois, ping (HTTP HEAD), http, ipinfo
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
-// In-memory token bucket per client IP — resets on cold start.
-// 20 requests / minute, burst 6. Defence-in-depth alongside client-side limiter.
+// Multi-dimensional token-bucket rate limiting (per IP, per user, per command).
+// Defence-in-depth alongside the client-side limiter. Resets on cold start.
 interface Bucket { tokens: number; updated: number; }
-const buckets = new Map<string, Bucket>();
-const MAX_TOKENS = 6;
-const REFILL_PER_SEC = 20 / 60;
+const ipBuckets = new Map<string, Bucket>();
+const userBuckets = new Map<string, Bucket>();
+const cmdBuckets = new Map<string, Bucket>(); // key: `${userOrIp}::${command}`
 
-function checkRate(ip: string): { ok: boolean; retryInMs: number } {
+function take(map: Map<string, Bucket>, key: string, max: number, refillPerSec: number) {
   const now = Date.now();
-  const b = buckets.get(ip) ?? { tokens: MAX_TOKENS, updated: now };
+  const b = map.get(key) ?? { tokens: max, updated: now };
   const elapsed = (now - b.updated) / 1000;
-  b.tokens = Math.min(MAX_TOKENS, b.tokens + elapsed * REFILL_PER_SEC);
+  b.tokens = Math.min(max, b.tokens + elapsed * refillPerSec);
   b.updated = now;
   if (b.tokens >= 1) {
     b.tokens -= 1;
-    buckets.set(ip, b);
+    map.set(key, b);
     return { ok: true, retryInMs: 0 };
   }
-  buckets.set(ip, b);
-  const need = 1 - b.tokens;
-  return { ok: false, retryInMs: Math.ceil((need / REFILL_PER_SEC) * 1000) };
+  map.set(key, b);
+  return { ok: false, retryInMs: Math.ceil(((1 - b.tokens) / refillPerSec) * 1000) };
+}
+
+function checkAllLimits(ip: string, userId: string | null, command: string) {
+  // Per IP: burst 6, 20/min sustained
+  const ipR = take(ipBuckets, ip, 6, 20 / 60);
+  if (!ipR.ok) return { ok: false, scope: "ip", retryInMs: ipR.retryInMs };
+  // Per user (if authed): burst 10, 40/min
+  if (userId) {
+    const uR = take(userBuckets, userId, 10, 40 / 60);
+    if (!uR.ok) return { ok: false, scope: "user", retryInMs: uR.retryInMs };
+  }
+  // Per (user|ip)+command: burst 4, 10/min — blocks brute-forcing one verb
+  const cmdKey = `${userId ?? ip}::${command}`;
+  const cR = take(cmdBuckets, cmdKey, 4, 10 / 60);
+  if (!cR.ok) return { ok: false, scope: "command", retryInMs: cR.retryInMs };
+  return { ok: true, scope: "ok", retryInMs: 0 };
 }
 
 const ALLOWED = new Set(["curl","wget","dig","whois","ping","nslookup","ipinfo","myip"]);
@@ -30,18 +45,19 @@ const ALLOWED = new Set(["curl","wget","dig","whois","ping","nslookup","ipinfo",
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // --- Rate limit (per client IP) ---
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
     || req.headers.get("cf-connecting-ip")
     || "unknown";
-  const rl = checkRate(ip);
-  if (!rl.ok) {
-    return new Response(JSON.stringify({
-      output: [`error: rate limit exceeded — retry in ${Math.ceil(rl.retryInMs / 1000)}s`],
-    }), {
-      status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rl.retryInMs / 1000)) },
-    });
+
+  // Best-effort user identification from JWT (sub claim) without verifying signature here —
+  // edge function is publicly invokable but we still meter authenticated callers separately.
+  let userId: string | null = null;
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) {
+    try {
+      const payload = JSON.parse(atob(auth.slice(7).split(".")[1]));
+      if (typeof payload?.sub === "string") userId = payload.sub;
+    } catch { /* ignore */ }
   }
 
   try {
@@ -52,6 +68,18 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const rl = checkAllLimits(ip, userId, command);
+    if (!rl.ok) {
+      const secs = Math.ceil(rl.retryInMs / 1000);
+      return new Response(JSON.stringify({
+        output: [`error: rate limit exceeded (${rl.scope}) — retry in ${secs}s`],
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(secs) },
+      });
+    }
+
     const lines: string[] = [];
     const t0 = Date.now();
 
