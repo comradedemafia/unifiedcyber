@@ -45,18 +45,19 @@ const ALLOWED = new Set(["curl","wget","dig","whois","ping","nslookup","ipinfo",
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // --- Rate limit (per client IP) ---
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
     || req.headers.get("cf-connecting-ip")
     || "unknown";
-  const rl = checkRate(ip);
-  if (!rl.ok) {
-    return new Response(JSON.stringify({
-      output: [`error: rate limit exceeded — retry in ${Math.ceil(rl.retryInMs / 1000)}s`],
-    }), {
-      status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rl.retryInMs / 1000)) },
-    });
+
+  // Best-effort user identification from JWT (sub claim) without verifying signature here —
+  // edge function is publicly invokable but we still meter authenticated callers separately.
+  let userId: string | null = null;
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) {
+    try {
+      const payload = JSON.parse(atob(auth.slice(7).split(".")[1]));
+      if (typeof payload?.sub === "string") userId = payload.sub;
+    } catch { /* ignore */ }
   }
 
   try {
@@ -67,6 +68,18 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const rl = checkAllLimits(ip, userId, command);
+    if (!rl.ok) {
+      const secs = Math.ceil(rl.retryInMs / 1000);
+      return new Response(JSON.stringify({
+        output: [`error: rate limit exceeded (${rl.scope}) — retry in ${secs}s`],
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(secs) },
+      });
+    }
+
     const lines: string[] = [];
     const t0 = Date.now();
 
