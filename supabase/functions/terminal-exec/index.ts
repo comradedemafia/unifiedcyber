@@ -156,13 +156,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { command, args } = await req.json();
-    if (!ALLOWED.has(command)) {
-      return new Response(JSON.stringify({ output: [`error: '${command}' is not allowed`] }), {
+    const body = await req.json().catch(() => null) as { command?: unknown; args?: unknown } | null;
+    const command = body?.command;
+    if (typeof command !== "string" || !ALLOWED.has(command)) {
+      return new Response(JSON.stringify({ output: [`error: command not allowed`] }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const validated = validateArgs(command, body?.args ?? []);
+    if (!validated.ok) {
+      return new Response(JSON.stringify({ output: [`error: ${validated.error}`] }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const args = validated.args;
 
     const rl = checkAllLimits(ip, userId, command);
     if (!rl.ok) {
