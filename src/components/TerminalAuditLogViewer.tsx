@@ -172,8 +172,56 @@ const TerminalAuditLogViewer = () => {
           <Button size="sm" variant="outline" onClick={load} className="text-[11px] gap-1">
             <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> Refresh
           </Button>
+          <Button size="sm" variant="outline" onClick={() => exportData("csv")} className="text-[11px] gap-1">
+            <Download className="w-3 h-3" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => exportData("json")} className="text-[11px] gap-1">
+            <Download className="w-3 h-3" /> JSON
+          </Button>
         </div>
       </div>
+
+      {/* Quick filter chips */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        {[
+          { v: "all", label: "All" },
+          { v: "real_command", label: "Real commands" },
+          { v: "command_blocked", label: "Blocked" },
+          { v: "rate_limit", label: "Rate limit" },
+          { v: "threshold_breach", label: "Thresholds" },
+        ].map((c) => (
+          <button
+            key={c.v}
+            onClick={() => { setPage(0); setFilter(c.v); }}
+            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-colors ${
+              filter === c.v
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border/50 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Validation rejection reasons summary (visible when blocked events present) */}
+      {reasons.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-warning/5 border border-warning/30">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertOctagon className="w-3.5 h-3.5 text-warning" />
+            <span className="text-[11px] font-mono font-semibold text-foreground">
+              Top validation rejection reasons (current page)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {reasons.map(([reason, n]) => (
+              <Badge key={reason} variant="secondary" className="text-[10px] font-mono">
+                {reason} <span className="ml-1 text-warning">×{n}</span>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-[11px] font-mono">
