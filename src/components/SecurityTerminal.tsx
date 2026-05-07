@@ -16,6 +16,7 @@ import {
 } from "@/utils/realCommandPolicy";
 import { consumeToken } from "@/utils/terminalRateLimit";
 import { logTerminalAudit } from "@/utils/terminalAudit";
+import { loadTerminalSession, saveTerminalSession, clearTerminalSession } from "@/utils/terminalPersistence";
 
 interface TerminalTab {
   id: number;
@@ -54,21 +55,35 @@ const initialLines = (): { text: string; type: "input" | "output" | "system" }[]
   { text: "", type: "system" },
 ];
 
-let tabCounter = 1;
+let tabCounter = (typeof window !== "undefined" ? loadTerminalSession()?.tabs?.reduce((m, t) => Math.max(m, t.id), 1) : 1) ?? 1;
 
 const SecurityTerminal = () => {
-  const [tabs, setTabs] = useState<TerminalTab[]>([
-    {
-      id: 1,
-      title: "kali@kali: ~",
-      lines: initialLines(),
-      state: createInitialState(),
-      editorState: createEditorState(),
-      mcActive: false,
-      historyIndex: -1,
-    },
-  ]);
-  const [activeTabId, setActiveTabId] = useState(1);
+  const persisted = typeof window !== "undefined" ? loadTerminalSession() : null;
+  const [tabs, setTabs] = useState<TerminalTab[]>(() => {
+    if (persisted?.tabs?.length) {
+      return persisted.tabs.map((p) => ({
+        id: p.id,
+        title: p.title,
+        lines: p.lines,
+        state: { ...createInitialState(), history: p.history ?? [] },
+        editorState: createEditorState(),
+        mcActive: false,
+        historyIndex: -1,
+      }));
+    }
+    return [
+      {
+        id: 1,
+        title: "kali@kali: ~",
+        lines: initialLines(),
+        state: createInitialState(),
+        editorState: createEditorState(),
+        mcActive: false,
+        historyIndex: -1,
+      },
+    ];
+  });
+  const [activeTabId, setActiveTabId] = useState(persisted?.activeTabId ?? 1);
   const [input, setInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -95,6 +110,17 @@ const SecurityTerminal = () => {
   }, []);
 
   useEffect(scrollToBottom, [activeTab?.lines, scrollToBottom]);
+
+  // Persist terminal session (lines + history) with TTL so reopening preserves state
+  useEffect(() => {
+    const id = setTimeout(() => {
+      saveTerminalSession(
+        tabs.map((t) => ({ id: t.id, title: t.title, lines: t.lines, history: t.state.history })),
+        activeTabId,
+      );
+    }, 400);
+    return () => clearTimeout(id);
+  }, [tabs, activeTabId]);
 
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
@@ -805,9 +831,20 @@ const SecurityTerminal = () => {
                 ? "mc — GNU Midnight Commander 4.8.31"
                 : activeTab.editorState.active
                 ? `${activeTab.editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2"} — ${activeTab.editorState.fileName}`
-                : `bash — ${activeTab.state.history.length} commands`}
+                : `bash — ${activeTab.state.history.length} commands · session persisted (6h)`}
             </span>
             <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearTerminalSession();
+                  toast.success("Saved terminal session cleared");
+                }}
+                className="hover:text-[#ef2929] underline-offset-2 hover:underline"
+                title="Clear saved terminal history (localStorage)"
+              >
+                clear saved
+              </button>
               <span>{tabs.length} tab{tabs.length > 1 ? "s" : ""}</span>
               <span>Kali 2026.1</span>
               <span>GNOME Terminal 3.54</span>

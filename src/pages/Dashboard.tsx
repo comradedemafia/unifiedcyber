@@ -33,6 +33,7 @@ import ResponsePlaybooks from "@/components/ResponsePlaybooks";
 import SecurityReports from "@/components/SecurityReports";
 import AttackSimulationPanel from "@/components/AttackSimulationPanel";
 import TerminalAuditLogViewer from "@/components/TerminalAuditLogViewer";
+import RoleBadge from "@/components/RoleBadge";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -258,6 +259,7 @@ const Dashboard = () => {
             <ThemeToggle />
             <NotificationPanel />
             <span className="text-xs text-muted-foreground font-mono hidden sm:block">{user?.email}</span>
+            <RoleBadge />
             <Button variant="ghost" size="sm" onClick={() => navigate("/siem")} className="text-xs font-mono gap-1">
               <Eye className="w-3 h-3" /> SIEM
             </Button>

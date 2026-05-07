@@ -6,6 +6,9 @@ import {
   Shield, AlertTriangle, Activity, Globe, Lock, LogOut, Flame, Ban,
   CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown, ChevronRight
 } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+import RoleBadge from "@/components/RoleBadge";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -129,13 +132,23 @@ const SIEM = () => {
             <span className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">SIEM Dashboard</span>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationPanel />
             <span className="text-xs text-muted-foreground font-mono hidden sm:block">{user?.email}</span>
+            <RoleBadge />
             <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="text-xs font-mono gap-1">
               <Activity className="w-3 h-3" /> Dashboard
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs font-mono gap-1">
               <Globe className="w-3 h-3" /> Home
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => { await signOut(); navigate("/login"); }}
+              className="text-xs font-mono gap-1 text-destructive"
+            >
+              <LogOut className="w-3 h-3" /> Logout
             </Button>
           </div>
         </div>

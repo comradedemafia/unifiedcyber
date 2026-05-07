@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Menu, X, Terminal, LogIn, LayoutDashboard } from "lucide-react";
+import { Shield, Menu, X, Terminal, LogIn, LayoutDashboard, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationPanel from "@/components/NotificationPanel";
 import ThemeToggle from "@/components/ThemeToggle";
+import RoleBadge from "@/components/RoleBadge";
 
 const navLinks = [
   { label: "Dashboard", href: "#dashboard" },
@@ -19,7 +20,7 @@ const navLinks = [
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -74,12 +75,22 @@ const Navbar = () => {
           <ThemeToggle />
           <NotificationPanel />
           {user ? (
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-primary bg-primary/10 hover:bg-primary/20 rounded-full transition-all"
-            >
-              <LayoutDashboard className="w-3 h-3" /> Dashboard
-            </button>
+            <>
+              <RoleBadge />
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-primary bg-primary/10 hover:bg-primary/20 rounded-full transition-all"
+              >
+                <LayoutDashboard className="w-3 h-3" /> Dashboard
+              </button>
+              <button
+                onClick={async () => { await signOut(); navigate("/login"); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-destructive bg-destructive/10 hover:bg-destructive/20 rounded-full transition-all"
+                title="Logout"
+              >
+                <LogOut className="w-3 h-3" /> Logout
+              </button>
+            </>
           ) : (
             <button
               onClick={() => navigate("/login")}

@@ -1,10 +1,23 @@
-import { useEffect, useState, useCallback } from "react";
-import { ScrollText, RefreshCw, Filter, Search, ChevronLeft, ChevronRight, Radio } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { ScrollText, RefreshCw, Filter, Search, ChevronLeft, ChevronRight, Radio, Download, AlertOctagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { toast } from "sonner";
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function csvCell(v: unknown): string {
+  if (v == null) return "";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+}
 
 interface AuditRow {
   id: string;
@@ -82,6 +95,42 @@ const TerminalAuditLogViewer = () => {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const reasons = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      if (r.event_type !== "command_blocked") continue;
+      const reason = (r.details as any)?.error ?? (r.details as any)?.reason ?? r.result ?? "unknown";
+      map.set(reason, (map.get(reason) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [rows]);
+
+  const exportData = async (format: "csv" | "json") => {
+    let q: any = (supabase.from("terminal_audit_log" as never) as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (filter !== "all") q = q.eq("event_type", filter);
+    if (search.trim()) {
+      const s = `%${search.trim()}%`;
+      q = q.or(`command.ilike.${s},target.ilike.${s},user_email.ilike.${s}`);
+    }
+    const { data, error } = await q;
+    if (error || !data) { toast.error(`Export failed: ${error?.message ?? "no data"}`); return; }
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    if (format === "json") {
+      downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `terminal-audit-${ts}.json`);
+    } else {
+      const headers = ["created_at","user_email","event_type","command","target","result","severity","details"];
+      const csv = [headers.join(",")]
+        .concat((data as AuditRow[]).map((r) => headers.map((h) => csvCell((r as any)[h])).join(",")))
+        .join("\n");
+      downloadBlob(new Blob([csv], { type: "text/csv" }), `terminal-audit-${ts}.csv`);
+    }
+    toast.success(`Exported ${(data as any).length} events as ${format.toUpperCase()}`);
+  };
+
+
   return (
     <div className="bg-card border border-border/50 rounded-xl p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -123,8 +172,56 @@ const TerminalAuditLogViewer = () => {
           <Button size="sm" variant="outline" onClick={load} className="text-[11px] gap-1">
             <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> Refresh
           </Button>
+          <Button size="sm" variant="outline" onClick={() => exportData("csv")} className="text-[11px] gap-1">
+            <Download className="w-3 h-3" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => exportData("json")} className="text-[11px] gap-1">
+            <Download className="w-3 h-3" /> JSON
+          </Button>
         </div>
       </div>
+
+      {/* Quick filter chips */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        {[
+          { v: "all", label: "All" },
+          { v: "real_command", label: "Real commands" },
+          { v: "command_blocked", label: "Blocked" },
+          { v: "rate_limit", label: "Rate limit" },
+          { v: "threshold_breach", label: "Thresholds" },
+        ].map((c) => (
+          <button
+            key={c.v}
+            onClick={() => { setPage(0); setFilter(c.v); }}
+            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-colors ${
+              filter === c.v
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border/50 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Validation rejection reasons summary (visible when blocked events present) */}
+      {reasons.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-warning/5 border border-warning/30">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertOctagon className="w-3.5 h-3.5 text-warning" />
+            <span className="text-[11px] font-mono font-semibold text-foreground">
+              Top validation rejection reasons (current page)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {reasons.map(([reason, n]) => (
+              <Badge key={reason} variant="secondary" className="text-[10px] font-mono">
+                {reason} <span className="ml-1 text-warning">×{n}</span>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-[11px] font-mono">
