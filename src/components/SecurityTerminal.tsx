@@ -55,7 +55,7 @@ const initialLines = (): { text: string; type: "input" | "output" | "system" }[]
   { text: "", type: "system" },
 ];
 
-let tabCounter = 1;
+let tabCounter = (typeof window !== "undefined" ? loadTerminalSession()?.tabs?.reduce((m, t) => Math.max(m, t.id), 1) : 1) ?? 1;
 
 const SecurityTerminal = () => {
   const persisted = typeof window !== "undefined" ? loadTerminalSession() : null;
