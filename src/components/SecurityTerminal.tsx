@@ -111,6 +111,17 @@ const SecurityTerminal = () => {
 
   useEffect(scrollToBottom, [activeTab?.lines, scrollToBottom]);
 
+  // Persist terminal session (lines + history) with TTL so reopening preserves state
+  useEffect(() => {
+    const id = setTimeout(() => {
+      saveTerminalSession(
+        tabs.map((t) => ({ id: t.id, title: t.title, lines: t.lines, history: t.state.history })),
+        activeTabId,
+      );
+    }, 400);
+    return () => clearTimeout(id);
+  }, [tabs, activeTabId]);
+
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
