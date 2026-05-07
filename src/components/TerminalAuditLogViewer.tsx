@@ -7,6 +7,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import { toast } from "sonner";
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function csvCell(v: unknown): string {
+  if (v == null) return "";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+}
+
 interface AuditRow {
   id: string;
   user_email: string | null;
