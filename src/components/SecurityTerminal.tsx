@@ -16,6 +16,7 @@ import {
 } from "@/utils/realCommandPolicy";
 import { consumeToken } from "@/utils/terminalRateLimit";
 import { logTerminalAudit } from "@/utils/terminalAudit";
+import { loadTerminalSession, saveTerminalSession, clearTerminalSession } from "@/utils/terminalPersistence";
 
 interface TerminalTab {
   id: number;
@@ -57,18 +58,32 @@ const initialLines = (): { text: string; type: "input" | "output" | "system" }[]
 let tabCounter = 1;
 
 const SecurityTerminal = () => {
-  const [tabs, setTabs] = useState<TerminalTab[]>([
-    {
-      id: 1,
-      title: "kali@kali: ~",
-      lines: initialLines(),
-      state: createInitialState(),
-      editorState: createEditorState(),
-      mcActive: false,
-      historyIndex: -1,
-    },
-  ]);
-  const [activeTabId, setActiveTabId] = useState(1);
+  const persisted = typeof window !== "undefined" ? loadTerminalSession() : null;
+  const [tabs, setTabs] = useState<TerminalTab[]>(() => {
+    if (persisted?.tabs?.length) {
+      return persisted.tabs.map((p) => ({
+        id: p.id,
+        title: p.title,
+        lines: p.lines,
+        state: { ...createInitialState(), history: p.history ?? [] },
+        editorState: createEditorState(),
+        mcActive: false,
+        historyIndex: -1,
+      }));
+    }
+    return [
+      {
+        id: 1,
+        title: "kali@kali: ~",
+        lines: initialLines(),
+        state: createInitialState(),
+        editorState: createEditorState(),
+        mcActive: false,
+        historyIndex: -1,
+      },
+    ];
+  });
+  const [activeTabId, setActiveTabId] = useState(persisted?.activeTabId ?? 1);
   const [input, setInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
