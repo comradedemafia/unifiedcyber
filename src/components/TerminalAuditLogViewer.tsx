@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
-import { ScrollText, RefreshCw, Filter, Search, ChevronLeft, ChevronRight, Radio } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { ScrollText, RefreshCw, Filter, Search, ChevronLeft, ChevronRight, Radio, Download, AlertOctagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { toast } from "sonner";
 
 interface AuditRow {
   id: string;
