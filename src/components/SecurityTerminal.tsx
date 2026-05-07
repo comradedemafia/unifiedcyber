@@ -831,9 +831,20 @@ const SecurityTerminal = () => {
                 ? "mc — GNU Midnight Commander 4.8.31"
                 : activeTab.editorState.active
                 ? `${activeTab.editorState.type === "vim" ? "VIM 9.1" : "GNU nano 7.2"} — ${activeTab.editorState.fileName}`
-                : `bash — ${activeTab.state.history.length} commands`}
+                : `bash — ${activeTab.state.history.length} commands · session persisted (6h)`}
             </span>
             <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearTerminalSession();
+                  toast.success("Saved terminal session cleared");
+                }}
+                className="hover:text-[#ef2929] underline-offset-2 hover:underline"
+                title="Clear saved terminal history (localStorage)"
+              >
+                clear saved
+              </button>
               <span>{tabs.length} tab{tabs.length > 1 ? "s" : ""}</span>
               <span>Kali 2026.1</span>
               <span>GNOME Terminal 3.54</span>
