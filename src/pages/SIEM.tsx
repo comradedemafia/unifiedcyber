@@ -7,6 +7,7 @@ import {
   CheckCircle2, Search, Filter, RefreshCw, Clock, Server, Eye, TrendingUp, FileDown, ChevronRight
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import RoleBadge from "@/components/RoleBadge";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
