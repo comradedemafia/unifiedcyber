@@ -83,6 +83,42 @@ const TerminalAuditLogViewer = () => {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const reasons = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      if (r.event_type !== "command_blocked") continue;
+      const reason = (r.details as any)?.error ?? (r.details as any)?.reason ?? r.result ?? "unknown";
+      map.set(reason, (map.get(reason) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [rows]);
+
+  const exportData = async (format: "csv" | "json") => {
+    let q: any = (supabase.from("terminal_audit_log" as never) as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (filter !== "all") q = q.eq("event_type", filter);
+    if (search.trim()) {
+      const s = `%${search.trim()}%`;
+      q = q.or(`command.ilike.${s},target.ilike.${s},user_email.ilike.${s}`);
+    }
+    const { data, error } = await q;
+    if (error || !data) { toast.error(`Export failed: ${error?.message ?? "no data"}`); return; }
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    if (format === "json") {
+      downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `terminal-audit-${ts}.json`);
+    } else {
+      const headers = ["created_at","user_email","event_type","command","target","result","severity","details"];
+      const csv = [headers.join(",")]
+        .concat((data as AuditRow[]).map((r) => headers.map((h) => csvCell((r as any)[h])).join(",")))
+        .join("\n");
+      downloadBlob(new Blob([csv], { type: "text/csv" }), `terminal-audit-${ts}.csv`);
+    }
+    toast.success(`Exported ${(data as any).length} events as ${format.toUpperCase()}`);
+  };
+
+
   return (
     <div className="bg-card border border-border/50 rounded-xl p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
