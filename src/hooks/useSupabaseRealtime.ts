@@ -17,6 +17,13 @@ export const useSupabaseRealtime = (
   deps: unknown[] = []
 ) => {
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.WebSocket === "undefined") {
+      console.warn(
+        "[useSupabaseRealtime] WebSocket unavailable in this environment; realtime updates are disabled."
+      );
+      return;
+    }
+
     const channel = supabase.channel(channelName);
 
     subscriptions.forEach(({ event, schema, table, filter, callback }) => {
