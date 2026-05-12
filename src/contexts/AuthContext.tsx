@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  resendVerificationEmail: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -143,6 +144,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resendVerificationEmail = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (!error) {
+        touchSecurityActivity();
+        logSecurityEvent("resend_verification_success", { email });
+      } else {
+        logSecurityEvent("resend_verification_error", { email, error: error.message });
+      }
+      return { error };
+    } catch (error) {
+      console.error("Resend verification error:", error);
+      logSecurityEvent("resend_verification_error", { email, error: error instanceof Error ? error.message : String(error) });
+      return { error };
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -173,7 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, resendVerificationEmail, signOut, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

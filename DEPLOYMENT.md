@@ -69,8 +69,12 @@ Create a `.env.local` file with your Supabase credentials:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+# or
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+> If verification emails do not arrive, verify your Supabase Authentication email settings and make sure your app origin is allowed as a redirect URL. In local development, real email delivery may require SMTP configuration or Supabase CLI email logs.
 
 ### 4. Database Setup
 

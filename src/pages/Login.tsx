@@ -17,7 +17,11 @@ const Login = () => {
   const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [supabaseLog, setSupabaseLog] = useState<string | null>(null);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const { signIn, signUp, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { logAuthAction } = useAuditLogging({ showNotifications: true });
@@ -69,10 +73,16 @@ const Login = () => {
       if (isSignUp) {
         const { error } = await signUp(sanitizedEmail, sanitizedPassword, sanitizedDisplayName);
         if (error) {
+          const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
+          setSupabaseLog(errorText);
+          setShowResend(true);
           logSecurityEvent("signup_failed", { email: sanitizedEmail, error: error.message });
           await logAuthAction('signup', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Signup Error", description: error.message, variant: "destructive" });
         } else {
+          setSupabaseLog(null);
+          setShowResend(true);
+          setResendMessage("Confirmation email sent. Use the button below if it did not arrive.");
           logSecurityEvent('signup_success', { email: sanitizedEmail });
           await logAuthAction('signup', 'success', { email: sanitizedEmail });
           toast({ title: "Account Created", description: "Please check your email to verify your account." });
@@ -80,10 +90,15 @@ const Login = () => {
       } else {
         const { error } = await signIn(sanitizedEmail, sanitizedPassword);
         if (error) {
+          const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
+          setSupabaseLog(errorText);
+          setShowResend(/not confirmed|verify.*email|verification/i.test(error.message));
           logSecurityEvent("login_failed", { email: sanitizedEmail, error: error.message });
           await logAuthAction('login', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Login Error", description: error.message, variant: "destructive" });
         } else {
+          setSupabaseLog(null);
+          setShowResend(false);
           logSecurityEvent('login_success', { email: sanitizedEmail });
           await logAuthAction('login', 'success', { email: sanitizedEmail });
           navigate("/dashboard");
@@ -91,11 +106,33 @@ const Login = () => {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      setSupabaseLog(typeof error === "object" ? JSON.stringify(error, null, 2) : String(error));
+      setShowResend(/not confirmed|verify.*email|verification/i.test(message));
       logSecurityEvent("auth_error", { email: sanitizedEmail, error: message });
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResendClick = async () => {
+    if (!email) return;
+    setResendLoading(true);
+    setResendMessage(null);
+    setSupabaseLog(null);
+
+    const { error } = await resendVerificationEmail(sanitizeInput(email));
+    if (error) {
+      const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
+      setSupabaseLog(errorText);
+      setResendMessage("Resend failed. Check the error details below.");
+      toast({ title: "Resend Failed", description: error.message, variant: "destructive" });
+    } else {
+      setResendMessage("Verification email resent. Check your inbox and spam folder.");
+      toast({ title: "Email Sent", description: "Verification email resent successfully." });
+    }
+
+    setResendLoading(false);
   };
 
   return (
@@ -188,6 +225,36 @@ const Login = () => {
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
+
+          {resendMessage && (
+            <div className="mt-4 rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
+              {resendMessage}
+            </div>
+          )}
+
+          {showResend && (
+            <div className="mt-4 flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={resendLoading}
+                onClick={handleResendClick}
+                className="w-full font-mono text-sm"
+              >
+                {resendLoading ? "Resending..." : "Resend verification email"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                If the confirmation email does not arrive, check your spam folder and verify the email address is correct.
+              </p>
+            </div>
+          )}
+
+          {supabaseLog && (
+            <div className="mt-4 rounded-md border border-slate-300 bg-slate-50 p-3 text-xs font-mono text-slate-800 whitespace-pre-wrap">
+              <strong className="block text-sm font-semibold text-slate-900">Debug log</strong>
+              {supabaseLog}
+            </div>
+          )}
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground/50 mt-4 font-mono">
