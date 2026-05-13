@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -28,6 +30,7 @@ interface AuditRow {
   result: string | null;
   severity: string;
   details: any;
+  validation_reason?: string | null;
   created_at: string;
 }
 
@@ -37,9 +40,12 @@ const sevColor = (s: string) =>
   s === "critical" ? "destructive" : s === "warning" ? "default" : "secondary";
 
 const TerminalAuditLogViewer = () => {
+  const { isAdmin, isModerator } = useUserRole();
+  const { user } = useAuth();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<string>("all");
+  const [validationReasonFilter, setValidationReasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -47,20 +53,40 @@ const TerminalAuditLogViewer = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const searchTerm = search.trim();
+    const reasonTerm = validationReasonFilter.trim().toLowerCase();
+
     let q: any = (supabase.from("terminal_audit_log" as never) as any)
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      .order("created_at", { ascending: false });
+
+    if (!isAdmin && user) q = q.eq("user_email", user.email);
     if (filter !== "all") q = q.eq("event_type", filter);
-    if (search.trim()) {
-      const s = `%${search.trim()}%`;
+    if (searchTerm) {
+      const s = `%${searchTerm}%`;
       q = q.or(`command.ilike.${s},target.ilike.${s},user_email.ilike.${s}`);
     }
-    const { data, count } = await q;
-    setRows((data as AuditRow[]) || []);
-    setTotal(count ?? 0);
+
+    if (reasonTerm === "all") {
+      q = q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      const { data, count } = await q;
+      setRows((data as AuditRow[]) || []);
+      setTotal(count ?? 0);
+    } else {
+      q = q.limit(2000);
+      const { data } = await q;
+      const allRows = (data as AuditRow[]) || [];
+      const filteredRows = allRows.filter((r) => {
+        const error = String((r.details as any)?.error ?? "").toLowerCase();
+        const reason = String((r.details as any)?.reason ?? "").toLowerCase();
+        return error.includes(reasonTerm) || reason.includes(reasonTerm);
+      });
+      setRows(filteredRows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+      setTotal(filteredRows.length);
+    }
+
     setLoading(false);
-  }, [filter, search, page]);
+  }, [filter, search, page, isAdmin, user, validationReasonFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -76,8 +102,16 @@ const TerminalAuditLogViewer = () => {
           if (!live) return;
           const row = payload.new as AuditRow;
           if (!row) return;
+          // respect role filter
+          if (!isAdmin && user && row.user_email !== user.email) return;
           // respect filter
           if (filter !== "all" && row.event_type !== filter) return;
+          if (validationReasonFilter !== "all") {
+            const error = String((row.details as any)?.error ?? "").toLowerCase();
+            const reason = String((row.details as any)?.reason ?? "").toLowerCase();
+            const term = validationReasonFilter.toLowerCase();
+            if (!error.includes(term) && !reason.includes(term)) return;
+          }
           if (search.trim()) {
             const s = search.trim().toLowerCase();
             const hay = `${row.command ?? ""} ${row.target ?? ""} ${row.user_email ?? ""}`.toLowerCase();
@@ -90,7 +124,7 @@ const TerminalAuditLogViewer = () => {
         },
       },
     ],
-    [live, filter, search, page]
+    [live, filter, search, page, isAdmin, user, validationReasonFilter]
   );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -98,36 +132,59 @@ const TerminalAuditLogViewer = () => {
   const reasons = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of rows) {
-      if (r.event_type !== "command_blocked") continue;
-      const reason = (r.details as any)?.error ?? (r.details as any)?.reason ?? r.result ?? "unknown";
+      const rawReason = (r.details as any)?.error ?? (r.details as any)?.reason ?? r.result;
+      if (!rawReason) continue;
+      const reason = String(rawReason);
       map.set(reason, (map.get(reason) ?? 0) + 1);
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [rows]);
 
   const exportData = async (format: "csv" | "json") => {
+    const searchTerm = search.trim();
+    const reasonTerm = validationReasonFilter.trim().toLowerCase();
+
     let q: any = (supabase.from("terminal_audit_log" as never) as any)
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(2000);
+      .order("created_at", { ascending: false });
+
+    if (!isAdmin && user) q = q.eq("user_email", user.email);
     if (filter !== "all") q = q.eq("event_type", filter);
-    if (search.trim()) {
-      const s = `%${search.trim()}%`;
+    if (searchTerm) {
+      const s = `%${searchTerm}%`;
       q = q.or(`command.ilike.${s},target.ilike.${s},user_email.ilike.${s}`);
     }
+
+    q = q.limit(2000);
     const { data, error } = await q;
     if (error || !data) { toast.error(`Export failed: ${error?.message ?? "no data"}`); return; }
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+
+    let rows = (data as AuditRow[]).map((r) => ({
+      ...r,
+      validation_reason: (r.details as any)?.error ?? (r.details as any)?.reason ?? null,
+    }));
+
+    if (reasonTerm !== "all") {
+      rows = rows.filter((r) => {
+        const error = String((r.details as any)?.error ?? "").toLowerCase();
+        const reason = String((r.details as any)?.reason ?? "").toLowerCase();
+        return error.includes(reasonTerm) || reason.includes(reasonTerm);
+      });
+    }
+
     if (format === "json") {
-      downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `terminal-audit-${ts}.json`);
+      downloadBlob(new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" }), `terminal-audit-${ts}.json`);
     } else {
-      const headers = ["created_at","user_email","event_type","command","target","result","severity","details"];
+      const headers = ["created_at","user_email","event_type","command","target","result","severity","validation_reason","details"];
       const csv = [headers.join(",")]
-        .concat((data as AuditRow[]).map((r) => headers.map((h) => csvCell((r as any)[h])).join(",")))
+        .concat(rows.map((r) => headers.map((h) => {
+          if (h === "validation_reason") return csvCell((r as any)[h]);
+          return csvCell((r as any)[h]);
+        }).join(",")))
         .join("\n");
       downloadBlob(new Blob([csv], { type: "text/csv" }), `terminal-audit-${ts}.csv`);
     }
-    toast.success(`Exported ${(data as any).length} events as ${format.toUpperCase()}`);
+    toast.success(`Exported ${rows.length} events as ${format.toUpperCase()}`);
   };
 
 
@@ -137,7 +194,9 @@ const TerminalAuditLogViewer = () => {
         <h3 className="text-sm font-mono font-semibold text-foreground flex items-center gap-2">
           <ScrollText className="w-4 h-4 text-primary" />
           Terminal Audit Log
-          <Badge variant="secondary" className="text-[9px]">admin only</Badge>
+          <Badge variant="secondary" className="text-[9px]">
+            {isAdmin ? "admin: full export" : isModerator ? "analyst: scoped export" : "restricted access"}
+          </Badge>
           {live && (
             <Badge variant="default" className="text-[9px] gap-1">
               <Radio className="w-2.5 h-2.5 animate-pulse" /> LIVE
@@ -156,6 +215,16 @@ const TerminalAuditLogViewer = () => {
             <option value="threshold_breach">Threshold breaches</option>
             <option value="rate_limit">Rate limit</option>
             <option value="command_blocked">Blocked</option>
+          </select>
+          <select
+            value={validationReasonFilter}
+            onChange={(e) => { setPage(0); setValidationReasonFilter(e.target.value); }}
+            className="bg-muted/20 border border-border/50 rounded px-2 py-1 text-[11px] font-mono"
+          >
+            <option value="all">All validation reasons</option>
+            {reasons.map(([reason]) => (
+              <option key={reason} value={reason}>{reason}</option>
+            ))}
           </select>
           <div className="relative">
             <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -234,12 +303,13 @@ const TerminalAuditLogViewer = () => {
               <th className="text-left py-2 px-2">Target</th>
               <th className="text-left py-2 px-2">Result</th>
               <th className="text-left py-2 px-2">Sev</th>
+              <th className="text-left py-2 px-2">Validation Reason</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-6 text-muted-foreground">
+                <td colSpan={8} className="text-center py-6 text-muted-foreground">
                   No audit events match.
                 </td>
               </tr>
@@ -259,6 +329,7 @@ const TerminalAuditLogViewer = () => {
                       {r.severity}
                     </Badge>
                   </td>
+                  <td className="py-1.5 px-2 truncate max-w-[160px]">{(r.details as any)?.error ?? (r.details as any)?.reason ?? "—"}</td>
                 </tr>
               ))
             )}
