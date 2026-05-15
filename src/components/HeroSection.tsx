@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { Shield, Activity, Lock, ChevronDown, Radar } from "lucide-react";
 import heroBg from "@/assets/hero-cyber.jpg";
 
@@ -71,13 +72,13 @@ const HeroSection = () => {
           transition={{ duration: 0.7, delay: 0.4 }}
           className="flex flex-wrap items-center justify-center gap-4"
         >
-          <a
-            href="#dashboard"
+          <Link
+            to="/login"
             className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:box-glow-strong transition-all duration-300 hover:scale-[1.02]"
           >
             <Activity className="w-4 h-4" />
-            View Dashboard
-          </a>
+            Get Started
+          </Link>
           <a
             href="#architecture"
             className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full border border-primary/25 text-primary font-medium text-sm hover:bg-primary/10 hover:border-primary/40 transition-all duration-300"

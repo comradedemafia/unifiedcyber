@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, displayName?: string, role?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   resendVerificationEmail: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -122,20 +122,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [refreshSession, touchSecurityActivity]);
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
+  const signUp = async (email: string, password: string, displayName?: string, role: string = "user") => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+      }, {
         options: {
-          data: { display_name: displayName },
+          data: { display_name: displayName, preferred_role: role },
           emailRedirectTo: window.location.origin,
         },
       });
+
       if (!error) {
         touchSecurityActivity();
-        logSecurityEvent("signup_success", { email });
+        logSecurityEvent("signup_success", { email, role });
+
+        if (data?.user?.id) {
+          const { error: roleError } = await supabase.from("user_roles").insert([{
+            user_id: data.user.id,
+            role: role as any,
+          }]);
+          if (roleError) {
+            console.warn("Role assignment failed during signup:", roleError.message);
+            logSecurityEvent("role_assignment_failed", { email, role, error: roleError.message });
+          }
+        }
       }
+
       return { error };
     } catch (error) {
       console.error("Sign up error:", error);

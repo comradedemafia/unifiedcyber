@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,13 +21,63 @@ const ExternalSystemDefense = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const systemsRef = useRef<ProtectedSystem[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
+    systemsRef.current = systems;
+  }, [systems]);
+
+  const parseEndpoint = (endpoint: string): URL | null => {
     try {
-      loadSystems();
+      const url = new URL(endpoint.trim());
+      if (!['http:', 'https:'].includes(url.protocol)) return null;
+      if (url.username || url.password) return null;
+      return url;
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchWithTimeout = async (endpoint: string, timeout = 5000) => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'HEAD',
+        mode: 'cors',
+        signal: controller.signal,
+        headers: {
+          Accept: '*/*'
+        }
+      });
+
+      if (response.status === 405 || response.status === 501) {
+        return await fetch(endpoint, {
+          method: 'GET',
+          mode: 'cors',
+          signal: controller.signal,
+          headers: {
+            Accept: '*/*'
+          }
+        });
+      }
+
+      return response;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const loadedSystems = loadSystems();
+      if (loadedSystems.length > 0) {
+        void monitorAllSystems();
+      }
+
       const interval = setInterval(() => {
-        monitorAllSystems();
+        void monitorAllSystems();
       }, 60000); // Check every minute
 
       return () => clearInterval(interval);
@@ -41,12 +91,15 @@ const ExternalSystemDefense = () => {
   const loadSystems = () => {
     try {
       const loadedSystems = protectedSystemsManager.getAll();
+      systemsRef.current = loadedSystems;
       setSystems(loadedSystems);
       setLoading(false);
+      return loadedSystems;
     } catch (err) {
       console.error('Error loading systems:', err);
       setError('Failed to load systems');
       setLoading(false);
+      return [] as ProtectedSystem[];
     }
   };
 
@@ -60,15 +113,29 @@ const ExternalSystemDefense = () => {
       return;
     }
 
+    const parsedEndpoint = parseEndpoint(newSystem.endpoint);
+    if (!parsedEndpoint) {
+      toast({
+        title: 'Invalid Endpoint',
+        description: 'Please enter a valid HTTP or HTTPS URL',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     const system = protectedSystemsManager.register({
       id: crypto.randomUUID(),
       name: newSystem.name,
-      endpoint: newSystem.endpoint,
+      endpoint: parsedEndpoint.toString(),
       apiKey: newSystem.apiKey,
       defenseLevel: 1
     });
 
-    setSystems([...systems, system]);
+    setSystems((prev) => {
+      const next = [...prev, system];
+      systemsRef.current = next;
+      return next;
+    });
     setNewSystem({ name: '', endpoint: '', apiKey: '' });
     
     toast({
@@ -86,19 +153,35 @@ const ExternalSystemDefense = () => {
     });
   };
 
-  const monitorAllSystems = () => {
-    systems.forEach(system => {
-      monitorSystem(system);
-    });
+  const monitorAllSystems = async () => {
+    const currentSystems = systemsRef.current;
+    await Promise.all(currentSystems.map((system) => monitorSystem(system)));
   };
 
-  const monitorSystem = (system: ProtectedSystem) => {
-    // Simulate health check
-    const status: ProtectedSystem['status'] = Math.random() > 0.1 ? 'online' : 'offline';
+  const monitorSystem = async (system: ProtectedSystem) => {
+    let status: ProtectedSystem['status'] = 'offline';
+    try {
+      const parsedEndpoint = parseEndpoint(system.endpoint);
+      if (!parsedEndpoint) {
+        throw new Error('Invalid endpoint URL');
+      }
+
+      const response = await fetchWithTimeout(parsedEndpoint.toString());
+      if (response.ok) {
+        status = 'online';
+      } else if (response.status >= 500) {
+        status = 'compromised';
+      } else {
+        status = 'offline';
+      }
+    } catch (err) {
+      status = 'offline';
+      console.warn(`Health check failed for ${system.name}:`, err);
+    }
+
     protectedSystemsManager.updateStatus(system.id, status);
-    
-    setSystems(prevSystems =>
-      prevSystems.map(s =>
+    setSystems((prevSystems) =>
+      prevSystems.map((s) =>
         s.id === system.id ? { ...s, status, lastHealthCheck: Date.now() } : s
       )
     );

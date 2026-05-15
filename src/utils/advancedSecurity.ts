@@ -23,6 +23,63 @@ export interface AnomalyScore {
 // IP Reputation system
 const IP_REPUTATION_STORAGE = 'ip_reputation_db';
 
+export const isValidExternalEndpoint = (value: string) => {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    if (url.username || url.password) return false;
+    if (!url.hostname) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export interface HealthProbeResult {
+  status: 'online' | 'offline' | 'unknown';
+  reason: string;
+}
+
+export const probeExternalEndpoint = async (endpoint: string, apiKey?: string): Promise<HealthProbeResult> => {
+  const headers: Record<string, string> = {};
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'HEAD',
+      headers,
+      mode: 'cors',
+    });
+
+    if (response.type === 'opaque') {
+      return { status: 'unknown', reason: 'opaque response (possible CORS restriction)' };
+    }
+
+    if (response.ok) {
+      return { status: 'online', reason: 'OK' };
+    }
+
+    if (response.status === 405 || response.status === 501) {
+      const getResponse = await fetch(endpoint, {
+        method: 'GET',
+        headers,
+        mode: 'cors',
+      });
+      if (getResponse.type === 'opaque') {
+        return { status: 'unknown', reason: 'opaque response on GET (possible CORS restriction)' };
+      }
+      return {
+        status: getResponse.ok ? 'online' : 'offline',
+        reason: `GET ${getResponse.status}`,
+      };
+    }
+
+    return { status: 'offline', reason: `HTTP ${response.status}` };
+  } catch (error) {
+    return { status: 'offline', reason: String(error) };
+  }
+};
+
 export const manageIPReputation = {
   whitelist: (ip: string, reason: string = 'Trusted') => {
     const data = JSON.parse(localStorage.getItem(IP_REPUTATION_STORAGE) || '{"whitelist": [], "blacklist": [], "reputation": {}}');
@@ -226,6 +283,7 @@ export interface ProtectedSystem {
   status: 'online' | 'offline' | 'compromised';
   lastHealthCheck: number;
   defenseLevel: number;
+  lastFailureReason?: string | null;
 }
 
 const PROTECTED_SYSTEMS_STORAGE = 'protected_systems';
@@ -248,12 +306,13 @@ export const protectedSystemsManager = {
     return JSON.parse(localStorage.getItem(PROTECTED_SYSTEMS_STORAGE) || '[]');
   },
 
-  updateStatus: (systemId: string, status: ProtectedSystem['status']) => {
+  updateStatus: (systemId: string, status: ProtectedSystem['status'], reason?: string) => {
     const systems = JSON.parse(localStorage.getItem(PROTECTED_SYSTEMS_STORAGE) || '[]');
     const system = systems.find((s: ProtectedSystem) => s.id === systemId);
     if (system) {
       system.status = status;
       system.lastHealthCheck = Date.now();
+      system.lastFailureReason = reason ?? system.lastFailureReason ?? null;
     }
     localStorage.setItem(PROTECTED_SYSTEMS_STORAGE, JSON.stringify(systems));
   },

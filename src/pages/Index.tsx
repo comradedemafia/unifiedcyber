@@ -10,6 +10,15 @@ const Index = () => {
     <div className="min-h-screen bg-background scroll-smooth">
       <Navbar />
       <HeroSection />
+      <section className="container mx-auto px-6 py-16 text-center">
+        <div className="mx-auto max-w-3xl">
+          <p className="text-sm font-mono uppercase tracking-[0.3em] text-primary/80 mb-4">Welcome to the AI cyber command center</p>
+          <h2 className="text-3xl sm:text-4xl font-semibold text-foreground mb-4">A digital-first security operations experience for analysts, operators, and administrators.</h2>
+          <p className="text-base text-muted-foreground leading-8">
+            Before login, this page introduces the system and its AI-powered monitoring intelligence. After sign in, your role controls which panels and controls become available inside the secure platform.
+          </p>
+        </div>
+      </section>
       <StatsBar />
       <SecurityLayers />
       <ArchitectureDiagram />

@@ -16,6 +16,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(false);
   const [supabaseLog, setSupabaseLog] = useState<string | null>(null);
   const [showResend, setShowResend] = useState(false);
@@ -71,7 +72,7 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(sanitizedEmail, sanitizedPassword, sanitizedDisplayName);
+        const { error } = await signUp(sanitizedEmail, sanitizedPassword, sanitizedDisplayName, role);
         if (error) {
           const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
           setSupabaseLog(errorText);
@@ -101,7 +102,7 @@ const Login = () => {
           setShowResend(false);
           logSecurityEvent('login_success', { email: sanitizedEmail });
           await logAuthAction('login', 'success', { email: sanitizedEmail });
-          navigate("/dashboard");
+          navigate("/siem");
         }
       }
     } catch (error) {
@@ -187,6 +188,35 @@ const Login = () => {
                 />
               </div>
             )}
+
+            {isSignUp && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-mono text-muted-foreground">Role</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "User", value: "user", description: "Basic monitoring and incident awareness." },
+                    { label: "Analyst", value: "moderator", description: "SIEM and threat investigation tools." },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setRole(option.value)}
+                      className={`rounded-xl border px-3 py-3 text-left transition-all ${role === option.value ? "border-primary bg-primary/10 text-foreground" : "border-border/50 bg-card text-muted-foreground hover:border-primary/60"}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-sm">{option.label}</span>
+                        <span className="text-[10px] font-mono uppercase text-muted-foreground/70">{role === option.value ? "Selected" : "Select"}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground/80 mt-1">{option.description}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Admin accounts are managed by the security operations team. Choose the role that matches your access level.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label className="text-xs font-mono text-muted-foreground">Email</Label>
               <Input
