@@ -161,6 +161,36 @@ const Login = () => {
 
         {/* Form Card */}
         <div className="bg-card/80 backdrop-blur-xl border border-border rounded-xl p-6">
+          <div className="flex flex-col gap-4 mb-6 rounded-3xl border border-border/50 bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-[0.3em] text-primary/80 mb-1">Secure access portal</p>
+                <h2 className="text-lg font-semibold text-foreground">Login or register to continue</h2>
+              </div>
+              <div className="rounded-2xl bg-primary/10 px-3 py-2 text-[11px] font-mono uppercase text-primary">AI powered</div>
+            </div>
+            <p className="text-sm text-muted-foreground leading-6">
+              After login, use your role-based access to reach Dashboard, Alerts, Monitoring, Logs, Terminal tools and Incident Response workflows inside the platform.
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+              <div className="rounded-2xl border border-border/50 bg-background/80 p-3">
+                <p className="font-semibold text-foreground">Dashboard</p>
+                <p>Live overview of security state and analytics.</p>
+              </div>
+              <div className="rounded-2xl border border-border/50 bg-background/80 p-3">
+                <p className="font-semibold text-foreground">Alerts</p>
+                <p>Immediate threat notifications with context.</p>
+              </div>
+              <div className="rounded-2xl border border-border/50 bg-background/80 p-3">
+                <p className="font-semibold text-foreground">Monitoring</p>
+                <p>Continuous system and network visibility.</p>
+              </div>
+              <div className="rounded-2xl border border-border/50 bg-background/80 p-3">
+                <p className="font-semibold text-foreground">Logs</p>
+                <p>Ordered audit logs for every activity.</p>
+              </div>
+            </div>
+          </div>
           <div className="flex gap-1 mb-6 bg-muted/30 rounded-lg p-1">
             <button
               onClick={() => setIsSignUp(false)}

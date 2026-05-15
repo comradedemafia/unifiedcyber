@@ -49,11 +49,11 @@ const HeroSection = () => {
           transition={{ duration: 0.7, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-display font-bold leading-[0.95] mb-8 tracking-tight"
         >
-          <span className="text-foreground">Unified</span>
+          <span className="text-foreground">AI-Driven</span>
           <br />
-          <span className="text-primary text-glow">Cyber Security</span>
+          <span className="text-primary text-glow">Cyber Command</span>
           <br />
-          <span className="text-foreground/80">Framework</span>
+          <span className="text-foreground/80">Control Center</span>
         </motion.h1>
 
         <motion.p
@@ -62,8 +62,7 @@ const HeroSection = () => {
           transition={{ duration: 0.7, delay: 0.25 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          Integrating <span className="text-foreground font-medium">System</span>, <span className="text-foreground font-medium">Web</span> & <span className="text-foreground font-medium">Network</span> Security 
-          into a single intelligent platform for real-time threat detection and coordinated response.
+          A digital-first security platform that uses AI to coordinate dashboard operations, alerts, monitoring, logs, and incident response in a single secure interface.
         </motion.p>
 
         <motion.div
