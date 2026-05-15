@@ -296,16 +296,19 @@ const Dashboard = () => {
                 </div>
               </div>
               <nav className="space-y-2">
-                {dashboardNav.map((item) => (
-                  <a
-                    key={item.id}
-                    href={`#${item.id}`}
-                    className="flex items-center gap-3 rounded-2xl border border-border/50 bg-background/80 px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary hover:bg-primary/5"
-                  >
-                    <item.icon className="w-4 h-4 text-primary" />
-                    {item.label}
-                  </a>
-                ))}
+                {dashboardNav.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      className="flex items-center gap-3 rounded-2xl border border-border/50 bg-background/80 px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary hover:bg-primary/5"
+                    >
+                      <Icon className="w-4 h-4 text-primary" />
+                      {item.label}
+                    </a>
+                  );
+                })}
               </nav>
               <div className="mt-6 rounded-3xl border border-border/50 bg-muted/10 p-4">
                 <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-muted-foreground/70 mb-3">AI tools</p>
