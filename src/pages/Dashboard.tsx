@@ -247,6 +247,15 @@ const Dashboard = () => {
 
   const sevColor = (s: string) => s === "critical" ? "text-destructive" : s === "high" ? "text-warning" : s === "medium" ? "text-accent" : "text-muted-foreground";
 
+  const dashboardNav = [
+    { id: "dashboard", label: "Dashboard", icon: Activity },
+    { id: "alerts", label: "Alerts", icon: AlertTriangle },
+    { id: "monitoring", label: "Monitoring", icon: Globe },
+    { id: "logs", label: "Logs", icon: Eye },
+    { id: "terminal-tools", label: "Terminal Tools", icon: Lock },
+    { id: "incident-response", label: "Incident Response", icon: Shield },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-40">
@@ -274,8 +283,45 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="hidden lg:block sticky top-24 self-start">
+            <div className="rounded-3xl border border-border/50 bg-card/80 p-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-muted-foreground/70">Security Platform</p>
+                  <h2 className="text-sm font-semibold text-foreground">Quick Navigation</h2>
+                </div>
+              </div>
+              <nav className="space-y-2">
+                {dashboardNav.map((item) => (
+                  <a
+                    key={item.id}
+                    href={`#${item.id}`}
+                    className="flex items-center gap-3 rounded-2xl border border-border/50 bg-background/80 px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary hover:bg-primary/5"
+                  >
+                    <item.icon className="w-4 h-4 text-primary" />
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+              <div className="mt-6 rounded-3xl border border-border/50 bg-muted/10 p-4">
+                <p className="text-[11px] font-mono uppercase tracking-[0.3em] text-muted-foreground/70 mb-3">AI tools</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>Automated alert triage</li>
+                  <li>Live monitoring</li>
+                  <li>Secure terminal ops</li>
+                  <li>Incident workflows</li>
+                </ul>
+              </div>
+            </div>
+          </aside>
+
+          <div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <div id="dashboard" className="flex items-center justify-between mb-8 flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-1">Security Operations Center</h1>
               <p className="text-sm text-muted-foreground">Real-time overview with automated incident response</p>
@@ -428,7 +474,7 @@ const Dashboard = () => {
 
         {/* System health + Recent alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          <div className="bg-card border border-border/50 rounded-xl p-5">
+          <div id="monitoring" className="bg-card border border-border/50 rounded-xl p-5">
             <h3 className="text-sm font-mono font-semibold text-foreground mb-4 flex items-center gap-2">
               <Activity className="w-4 h-4 text-primary" /> System Health
             </h3>
@@ -455,7 +501,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-card border border-border/50 rounded-xl p-5">
+          <div id="alerts" className="bg-card border border-border/50 rounded-xl p-5">
             <h3 className="text-sm font-mono font-semibold text-foreground mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-warning" /> Recent Alerts
             </h3>
@@ -506,11 +552,11 @@ const Dashboard = () => {
 
           {/* Operational tools (admin only — moved from landing) */}
           <div className="mt-8 space-y-8">
+            <div id="logs"><LiveLogStream /></div>
+            <div id="terminal-tools"><SecurityTerminal /></div>
+            <div id="incident-response"><IncidentResponse /></div>
             <LiveThreatFeed />
             <LiveMonitoring />
-            <LiveLogStream />
-            <SecurityTerminal />
-            <IncidentResponse />
             <ThreatIntelligence />
             <VulnerabilityScanner />
             <ResponsePlaybooks />
