@@ -1,9 +1,27 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Shield, Activity, Lock, ChevronDown, Radar } from "lucide-react";
 import heroBg from "@/assets/hero-cyber.jpg";
 
 const HeroSection = () => {
+  const phrases = [
+    "AI-assisted threat detection",
+    "Unified logs, alerts, monitoring",
+    "Interactive incident response",
+    "Secure terminal operations",
+    "Architecture visibility and compliance",
+  ];
+  const [activePhrase, setActivePhrase] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(
+      () => setActivePhrase((index) => (index + 1) % phrases.length),
+      2800
+    );
+    return () => window.clearInterval(interval);
+  }, [phrases.length]);
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background layers */}
@@ -31,6 +49,14 @@ const HeroSection = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-6 text-center">
+        <div className="absolute left-6 top-6 flex flex-col gap-3 rounded-3xl border border-border/30 bg-card/80 p-3 shadow-lg shadow-black/5 backdrop-blur-xl">
+          <Link to="/login" className="inline-flex items-center justify-center rounded-full border border-primary/25 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary transition hover:bg-primary/15">
+            Login
+          </Link>
+          <Link to="/login?mode=signup" className="inline-flex items-center justify-center rounded-full border border-border/40 bg-background/80 px-4 py-2 text-xs font-semibold text-foreground transition hover:border-primary">
+            Register
+          </Link>
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -60,10 +86,20 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.25 }}
-          className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
+          className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-4 leading-relaxed"
         >
           A digital-first security platform that uses AI to coordinate dashboard operations, alerts, monitoring, logs, and incident response in a single secure interface.
         </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: [0.3, 1, 0.3], x: [0, 10, -10, 0] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+          className="inline-flex items-center gap-3 rounded-full border border-primary/15 bg-primary/5 px-5 py-3 text-sm font-semibold text-primary backdrop-blur-sm"
+        >
+          <span className="font-mono uppercase tracking-[0.3em] text-primary/80">Now showing:</span>
+          <span className="text-foreground">{phrases[activePhrase]}</span>
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

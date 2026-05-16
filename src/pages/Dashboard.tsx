@@ -9,7 +9,7 @@ import { createSecurityIncident, blockIP, createThreatAlert } from "@/utils/vali
 import {
   Shield, AlertTriangle, CheckCircle2, Activity, Globe, Lock,
   LogOut, Ban, Flame, Bug, TrendingUp, Server, Users, Clock, Eye,
-  Send, Zap, Loader2
+  Send, Zap, Loader2, Menu, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ const Dashboard = () => {
     blockedIPs: 0,
     resolvedIncidents: 0,
   });
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [autoResponses, setAutoResponses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,6 +252,7 @@ const Dashboard = () => {
     { id: "dashboard", label: "Dashboard", icon: Activity },
     { id: "alerts", label: "Alerts", icon: AlertTriangle },
     { id: "monitoring", label: "Monitoring", icon: Globe },
+    { id: "architecture", label: "Architecture", icon: Server },
     { id: "logs", label: "Logs", icon: Eye },
     { id: "terminal-tools", label: "Terminal Tools", icon: Lock },
     { id: "incident-response", label: "Incident Response", icon: Shield },
@@ -284,16 +286,27 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-6 py-8">
         <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="hidden lg:block sticky top-24 self-start">
+          <aside className={`hidden lg:block sticky top-24 self-start transition-all duration-300 ${sidebarOpen ? "w-72" : "w-16"}`}>
             <div className="rounded-3xl border border-border/50 bg-card/80 p-5 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                  <Activity className="w-5 h-5" />
+              <div className="mb-6 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  {sidebarOpen && (
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-muted-foreground/70">Security Platform</p>
+                      <h2 className="text-sm font-semibold text-foreground">Quick Navigation</h2>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-muted-foreground/70">Security Platform</p>
-                  <h2 className="text-sm font-semibold text-foreground">Quick Navigation</h2>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen((open) => !open)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/50 bg-background/80 text-muted-foreground transition hover:border-primary hover:text-primary"
+                >
+                  {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+                </button>
               </div>
               <nav className="space-y-2">
                 {dashboardNav.map((item) => {
@@ -530,7 +543,9 @@ const Dashboard = () => {
         </div>
 
         {/* Security Monitor */}
-        <SecurityMonitor />
+        <div id="architecture" className="mt-8">
+          <SecurityMonitor />
+        </div>
 
         {/* Advanced Security Components */}
         <ErrorBoundary>
@@ -558,9 +573,9 @@ const Dashboard = () => {
             <div id="logs"><LiveLogStream /></div>
             <div id="terminal-tools"><SecurityTerminal /></div>
             <div id="incident-response"><IncidentResponse /></div>
+            <div id="architecture"><ThreatIntelligence /></div>
             <LiveThreatFeed />
             <LiveMonitoring />
-            <ThreatIntelligence />
             <VulnerabilityScanner />
             <ResponsePlaybooks />
             <SecurityReports />

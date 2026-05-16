@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Shield, Terminal, Eye, EyeOff, ArrowRight, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,16 @@ const Login = () => {
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const { signIn, signUp, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { logAuthAction } = useAuditLogging({ showNotifications: true });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("mode") === "signup") {
+      setIsSignUp(true);
+    }
+  }, [location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
