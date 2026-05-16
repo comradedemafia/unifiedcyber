@@ -431,15 +431,13 @@ export const initializeSecurityDefenses = async () => {
 
 export const generateSecurityReport = (): string => {
   const timestamp = new Date().toISOString();
-  const defenses = JSON.parse(localStorage.getItem('security_defense_posture') || '{}');
-  const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
-  
+
   return `
 SECURITY REPORT - ${timestamp}
 ================================
-Active Defenses: ${Object.keys(defenses).length}
-Total Logged Events: ${logs.length}
-Last 24h Events: ${logs.filter((l: any) => Date.now() - new Date(l.timestamp).getTime() < 24 * 60 * 60 * 1000).length}
-Defense Posture: ${localStorage.getItem('defense_posture_level') || 'Standard'}
+Active Defenses: unavailable in client-only mode
+Total Logged Events: audit logs are stored in Supabase DB
+Last 24h Events: audit logs are stored in Supabase DB
+Defense Posture: Standard
   `;
 };
