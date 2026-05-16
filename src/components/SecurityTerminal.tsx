@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Terminal, X, Minus, Square, Menu, Plus, Search, ChevronDown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { createFileSystem, FSNode } from "./terminal/kaliFileSystem";
 import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
@@ -95,6 +96,12 @@ const SecurityTerminal = () => {
     realCmd: string; realArgs: string[]; target?: string; raw: string;
   } | null>(null);
   const [rememberTarget, setRememberTarget] = useState(true);
+  const [shellSocket, setShellSocket] = useState<WebSocket | null>(null);
+  const [shellConnected, setShellConnected] = useState(false);
+  const [realShellEnabled, setRealShellEnabled] = useState(true);
+  const [terminalConnectionError, setTerminalConnectionError] = useState<string | null>(null);
+  const outputBufferRef = useRef("");
+  const shellUrl = import.meta.env.VITE_TERMINAL_WS_URL || "ws://localhost:4000/terminal";
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -190,6 +197,79 @@ const SecurityTerminal = () => {
     const dir = st.cwd === "/home/kali" ? "~" : st.cwd.split("/").pop() || "/";
     return `${st.user}@${st.hostname}: ${dir}`;
   };
+
+  const appendShellOutput = useCallback((text: string) => {
+    const chunk = text.replace(/\r/g, "");
+    outputBufferRef.current += chunk;
+    const lines = outputBufferRef.current.split("\n");
+    const completeLines = lines.slice(0, -1);
+    outputBufferRef.current = lines[lines.length - 1];
+    if (completeLines.length === 0 && outputBufferRef.current === "") return;
+    updateActiveTab((t) => ({
+      lines: [
+        ...t.lines,
+        ...completeLines.map((line) => ({ text: line, type: "output" as const })),
+      ],
+    }));
+  }, [updateActiveTab]);
+
+  const connectShellSocket = useCallback(async () => {
+    if (shellSocket || !realShellEnabled) return;
+    const token = await supabase.auth.getSession().then((res) => res.data.session?.access_token);
+    if (!token) {
+      setTerminalConnectionError("No authenticated session available for terminal websocket.");
+      return;
+    }
+
+    const ws = new WebSocket(`${shellUrl}?access_token=${encodeURIComponent(token)}`);
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => {
+      setShellConnected(true);
+      setTerminalConnectionError(null);
+    };
+
+    ws.onmessage = (event) => {
+      const payload = typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data);
+      appendShellOutput(payload);
+    };
+
+    ws.onclose = (event) => {
+      setShellConnected(false);
+      setShellSocket(null);
+      if (!event.wasClean) {
+        setTerminalConnectionError("Terminal websocket disconnected unexpectedly.");
+      }
+    };
+
+    ws.onerror = () => {
+      setTerminalConnectionError("Unable to connect to terminal websocket.");
+    };
+
+    setShellSocket(ws);
+  }, [shellSocket, realShellEnabled, shellUrl, appendShellOutput]);
+
+  useEffect(() => {
+    if (realShellEnabled) {
+      connectShellSocket();
+    }
+    return () => {
+      if (shellSocket) {
+        shellSocket.close();
+      }
+    };
+  }, [connectShellSocket, realShellEnabled, shellSocket]);
+
+  const sendShellInput = useCallback(
+    (input: string) => {
+      if (!shellSocket || shellSocket.readyState !== WebSocket.OPEN) {
+        setTerminalConnectionError("Terminal websocket is not connected.");
+        return;
+      }
+      shellSocket.send(JSON.stringify({ type: "input", data: input }));
+    },
+    [shellSocket]
+  );
 
   const runRealCommand = useCallback(
     async (realCmd: string, realArgs: string[], rawCmd: string) => {
@@ -403,6 +483,12 @@ const SecurityTerminal = () => {
       ],
       historyIndex: -1,
     }));
+
+    if (realShellEnabled && shellConnected) {
+      sendShellInput(`${cmd}\n`);
+      return;
+    }
+
     processCommand(cmd);
   };
 
