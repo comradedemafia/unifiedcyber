@@ -106,15 +106,10 @@ export const useAuditLogging = (options: UseAuditLoggingOptions = {}) => {
     []
   );
 
-  const appendAuditLog = useCallback((entry: any) => {
-    setAuditLogs((prev) => [entry, ...prev].slice(0, 200));
-  }, []);
-
   return {
     validateAndInsert,
     logAuthAction,
     fetchAuditLogs,
-    appendAuditLog,
     isValidating,
     errors,
     warnings,
@@ -128,6 +123,9 @@ export const useSecurityMonitoring = () => {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const audit = useAuditLogging();
+  const appendAuditLog = useCallback((entry: any) => {
+    setAuditLogs((prev) => [entry, ...prev].slice(0, 200));
+  }, []);
 
   const loadRecentLogs = useCallback(
     async (limit: number = 50) => {
@@ -174,5 +172,6 @@ export const useSecurityMonitoring = () => {
     loadRecentLogs,
     loadLogsByType,
     loadCriticalLogs,
+    appendAuditLog,
   };
 };

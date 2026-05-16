@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { validateEmail, validatePassword, sanitizeInput, rateLimit, checkForSuspiciousActivity } from "@/utils/security";
+import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity, recordFailedLoginAttempt } from "@/utils/security";
 import { useAuditLogging } from "@/hooks/useAuditLogging";
 
 const Login = () => {
@@ -47,8 +47,7 @@ const Login = () => {
       return;
     }
 
-    if (!isSignUp && checkForSuspiciousActivity()) {
-      logSecurityEvent("suspicious_activity_blocked", { email: sanitizedEmail });
+    if (!isSignUp && checkForSuspiciousActivity(sanitizedEmail)) {
       toast({
         title: "Suspicious Activity Detected",
         description: "Multiple failed login attempts were detected. Try again after 15 minutes.",
@@ -100,6 +99,7 @@ const Login = () => {
           const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
           setSupabaseLog(errorText);
           setShowResend(/not confirmed|verify.*email|verification/i.test(error.message));
+          recordFailedLoginAttempt(sanitizedEmail);
           await logAuthAction('login', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Login Error", description: error.message, variant: "destructive" });
         } else {

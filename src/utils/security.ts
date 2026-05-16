@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 // Security utilities for input validation and sanitization
 
 export const sanitizeInput = (input: string): string => {
@@ -75,32 +77,73 @@ export const rateLimit = (key: string, maxAttempts: number = 5, windowMs: number
   return true;
 };
 
-export const logSecurityEvent = (event: string, details?: any) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[SECURITY ${timestamp}] ${event}`, details);
+export const logSecurityEvent = async (event: string, details?: any) => {
+  try {
+    const ipAddress = await getClientIp();
+    const { error } = await supabase.rpc("log_security_event", {
+      p_event_type: event,
+      p_action: details?.action || event,
+      p_resource_type: details?.resource_type || "system",
+      p_resource_id: details?.resource_id || null,
+      p_severity: details?.severity || "info",
+      p_status: details?.status || "success",
+      p_details: details || {},
+      p_ip_address: ipAddress,
+      p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      p_source_system: "web-client",
+    });
 
-  // In a real app, this would send to a security logging service
-  // For now, we'll store in localStorage for demo purposes
-  const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
-  logs.push({ timestamp, event, details });
-  // Keep only last 100 logs
-  if (logs.length > 100) logs.shift();
-  localStorage.setItem('security_logs', JSON.stringify(logs));
+    if (error) {
+      console.error("Failed to log security event:", error);
+    }
+  } catch (error) {
+    console.error("Error in logSecurityEvent:", error);
+  }
 };
 
-export const checkForSuspiciousActivity = () => {
-  // Check for rapid successive failed login attempts
-  const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
-  const recentLogs = logs.filter((log: any) =>
-    log.event.includes('login_failed') &&
-    Date.now() - new Date(log.timestamp).getTime() < 10 * 60 * 1000 // Last 10 minutes
-  );
+const getClientIp = async (): Promise<string> => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    return data.ip || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+};
 
-  if (recentLogs.length > 3) {
-    logSecurityEvent('suspicious_activity_detected', { type: 'rapid_failed_logins', count: recentLogs.length });
+const FAILED_LOGIN_STORAGE_KEY = 'failed_login_attempts';
+
+type FailedLoginRecord = Record<string, number[]>;
+
+const readFailedLoginStorage = (): FailedLoginRecord => {
+  try {
+    return JSON.parse(localStorage.getItem(FAILED_LOGIN_STORAGE_KEY) || '{}') as FailedLoginRecord;
+  } catch {
+    return {};
+  }
+};
+
+const writeFailedLoginStorage = (data: FailedLoginRecord) => {
+  localStorage.setItem(FAILED_LOGIN_STORAGE_KEY, JSON.stringify(data));
+};
+
+export const recordFailedLoginAttempt = (key: string) => {
+  const now = Date.now();
+  const data = readFailedLoginStorage();
+  const attempts = (data[key] || []).filter(ts => now - ts < 10 * 60 * 1000);
+  attempts.push(now);
+  data[key] = attempts;
+  writeFailedLoginStorage(data);
+};
+
+export const checkForSuspiciousActivity = (key: string) => {
+  const now = Date.now();
+  const data = readFailedLoginStorage();
+  const attempts = (data[key] || []).filter(ts => now - ts < 10 * 60 * 1000);
+  if (attempts.length > 3) {
+    void logSecurityEvent('suspicious_activity_detected', { type: 'rapid_failed_logins', count: attempts.length });
     return true;
   }
-
   return false;
 };
 

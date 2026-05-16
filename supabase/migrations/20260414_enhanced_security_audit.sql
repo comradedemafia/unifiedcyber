@@ -264,6 +264,56 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+CREATE OR REPLACE FUNCTION public.log_security_event(
+  p_event_type TEXT,
+  p_action TEXT,
+  p_resource_type TEXT DEFAULT NULL,
+  p_resource_id UUID DEFAULT NULL,
+  p_severity audit_level DEFAULT 'info',
+  p_status TEXT DEFAULT 'success',
+  p_details JSONB DEFAULT '{}'::jsonb,
+  p_ip_address TEXT DEFAULT NULL,
+  p_user_agent TEXT DEFAULT NULL,
+  p_source_system TEXT DEFAULT 'web-client'
+)
+RETURNS uuid AS $$
+DECLARE
+  v_log_id UUID;
+BEGIN
+  INSERT INTO public.security_logs (
+    user_id,
+    event_type,
+    action,
+    resource_type,
+    resource_id,
+    severity,
+    status,
+    details,
+    ip_address,
+    user_agent,
+    source_system
+  )
+  VALUES (
+    auth.uid(),
+    p_event_type,
+    p_action,
+    COALESCE(p_resource_type, 'system'),
+    p_resource_id,
+    p_severity,
+    p_status,
+    p_details,
+    p_ip_address,
+    p_user_agent,
+    p_source_system
+  )
+  RETURNING id INTO v_log_id;
+
+  RETURN v_log_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.get_audit_logs TO authenticated;
 GRANT EXECUTE ON FUNCTION public.log_auth_event TO anon;
+GRANT EXECUTE ON FUNCTION public.log_security_event TO authenticated;
+GRANT EXECUTE ON FUNCTION public.log_security_event TO anon;
