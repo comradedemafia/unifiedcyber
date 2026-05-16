@@ -8,6 +8,7 @@ import {
   Activity, Target, Brain, AlertCircle
 } from 'lucide-react';
 import { analyzeUserBehavior, AnomalyScore, automatedThreatResponse } from '@/utils/advancedSecurity';
+import { getAuditLogs } from '@/utils/api-validation';
 import { useToast } from '@/hooks/use-toast';
 
 interface ThreatAlert {
@@ -28,29 +29,31 @@ const AdvancedThreatDetection = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      analyzeSystemThreats();
-      const interval = setInterval(analyzeSystemThreats, 60000); // Every minute
-      return () => clearInterval(interval);
-    } catch (err) {
-      console.error('Error in AdvancedThreatDetection:', err);
-      setError('Failed to initialize threat detection');
-      setLoading(false);
-    }
+    const startDetection = async () => {
+      try {
+        await analyzeSystemThreats();
+        const interval = setInterval(() => {
+          void analyzeSystemThreats();
+        }, 60000); // Every minute
+        return () => clearInterval(interval);
+      } catch (err) {
+        console.error('Error in AdvancedThreatDetection:', err);
+        setError('Failed to initialize threat detection');
+        setLoading(false);
+      }
+    };
+
+    void startDetection();
   }, []);
 
-  const analyzeSystemThreats = () => {
+  const analyzeSystemThreats = async () => {
     try {
-      // Simulate getting activity logs
-      const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
-      
-      // Analyze current user behavior
+      const logs = await getAuditLogs(undefined, undefined, 200);
       const userId = localStorage.getItem('current_user_id') || 'anonymous';
       const anomalyScore = analyzeUserBehavior(userId, logs);
-      
+
       setAnomalyScores(prev => [anomalyScore, ...prev].slice(0, 10));
 
-      // Generate threat alerts based on anomaly scores
       if (anomalyScore.riskLevel !== 'normal') {
         generateThreatAlert(anomalyScore);
       }
