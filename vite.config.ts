@@ -11,6 +11,24 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    watch: {
+      ignored: [
+        '**/node_modules/**',
+        '**/.git/**',
+        '**/.vscode/**',
+        '**/.idea/**',
+        '**/bun.lock',
+        '**/bun.lockb',
+        '**/*.md',
+        '**/*.sh',
+        '**/*.lock',
+        '**/*.toml',
+        '**/*.yml',
+        '**/*.yaml',
+      ],
+      usePolling: true,
+      interval: 1000,
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
