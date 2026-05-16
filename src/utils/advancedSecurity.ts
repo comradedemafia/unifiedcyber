@@ -130,8 +130,16 @@ export const analyzeUserBehavior = (userId: string, activityLog: any[]): Anomaly
   const factors: string[] = [];
   let riskScore = 0;
 
+  const normalizeEvent = (log: any) => {
+    const event = (log.event_type || log.event || log.action || '').toString().toLowerCase();
+    const timestamp = log.timestamp ? Number(log.timestamp) : log.created_at ? new Date(log.created_at).getTime() : Date.now();
+    return { ...log, event, timestamp };
+  };
+
+  const normalizedLogs = activityLog.map(normalizeEvent);
+
   // Check login patterns
-  const loginAttempts = activityLog.filter(log => log.event.includes('login'));
+  const loginAttempts = normalizedLogs.filter(log => log.event.includes('login'));
   if (loginAttempts.length > 10) {
     factors.push('excessive_login_attempts');
     riskScore += 15;
@@ -147,7 +155,7 @@ export const analyzeUserBehavior = (userId: string, activityLog: any[]): Anomaly
 
   // Check for rapid geographical changes
   const lastTwoLogins = loginAttempts.slice(-2);
-  if (lastTwoLogins.length === 2 && lastTwoLogins[0].timestamp && lastTwoLogins[1].timestamp) {
+  if (lastTwoLogins.length === 2) {
     const timeDiff = lastTwoLogins[1].timestamp - lastTwoLogins[0].timestamp;
     if (timeDiff < 1 * 60 * 1000) { // Less than 1 minute
       factors.push('impossible_travel');
@@ -156,21 +164,21 @@ export const analyzeUserBehavior = (userId: string, activityLog: any[]): Anomaly
   }
 
   // Check failed authentication attempts
-  const failedAttempts = activityLog.filter(log => log.event.includes('failed'));
+  const failedAttempts = normalizedLogs.filter(log => log.event.includes('failed') || log.status === 'failed');
   if (failedAttempts.length >= 5) {
     factors.push('multiple_failed_attempts');
     riskScore += 25;
   }
 
   // Check for privilege escalation attempts
-  const privEscAttempts = activityLog.filter(log => log.event.includes('escalation'));
+  const privEscAttempts = normalizedLogs.filter(log => log.event.includes('escalation') || log.action?.toString().toLowerCase().includes('escalation'));
   if (privEscAttempts.length > 0) {
     factors.push('privilege_escalation_attempt');
     riskScore += 35;
   }
 
   // Check for data exfiltration patterns
-  const dataAccessLogs = activityLog.filter(log => log.event.includes('data_access'));
+  const dataAccessLogs = normalizedLogs.filter(log => log.event.includes('data_access') || log.resource_type?.toString().toLowerCase().includes('data'));
   if (dataAccessLogs.length > 50) {
     factors.push('excessive_data_access');
     riskScore += 20;

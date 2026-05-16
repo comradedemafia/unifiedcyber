@@ -29,13 +29,11 @@ const AdvancedThreatDetection = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
     const startDetection = async () => {
       try {
         await analyzeSystemThreats();
-        const interval = setInterval(() => {
-          void analyzeSystemThreats();
-        }, 60000); // Every minute
-        return () => clearInterval(interval);
       } catch (err) {
         console.error('Error in AdvancedThreatDetection:', err);
         setError('Failed to initialize threat detection');
@@ -44,6 +42,13 @@ const AdvancedThreatDetection = () => {
     };
 
     void startDetection();
+    interval = setInterval(() => {
+      void analyzeSystemThreats();
+    }, 60000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   const analyzeSystemThreats = async () => {

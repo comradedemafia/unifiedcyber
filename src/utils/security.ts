@@ -327,37 +327,3 @@ export const securityHeaders = {
     };
   }
 };
-
-// Audit Logging
-export const auditLog = {
-  logAction: (action: string, user: string, details: any, severity: 'info' | 'warning' | 'error' = 'info') => {
-    const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
-    logs.push({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      action,
-      user,
-      details,
-      severity,
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    });
-    
-    // Keep last 500 audit logs
-    if (logs.length > 500) logs.shift();
-    localStorage.setItem('audit_logs', JSON.stringify(logs));
-  },
-
-  getAuditLogs: (filterBySeverity?: string) => {
-    const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
-    if (filterBySeverity) {
-      return logs.filter((log: any) => log.severity === filterBySeverity);
-    }
-    return logs;
-  },
-
-  exportAuditLogs: (): string => {
-    const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
-    return JSON.stringify(logs, null, 2);
-  }
-};
