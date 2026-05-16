@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity } from "@/utils/security";
+import { validateEmail, validatePassword, sanitizeInput, rateLimit, checkForSuspiciousActivity } from "@/utils/security";
 import { useAuditLogging } from "@/hooks/useAuditLogging";
 
 const Login = () => {
@@ -85,14 +85,12 @@ const Login = () => {
           const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
           setSupabaseLog(errorText);
           setShowResend(true);
-          logSecurityEvent("signup_failed", { email: sanitizedEmail, error: error.message });
           await logAuthAction('signup', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Signup Error", description: error.message, variant: "destructive" });
         } else {
           setSupabaseLog(null);
           setShowResend(true);
           setResendMessage("Confirmation email sent. Use the button below if it did not arrive.");
-          logSecurityEvent('signup_success', { email: sanitizedEmail });
           await logAuthAction('signup', 'success', { email: sanitizedEmail });
           toast({ title: "Account Created", description: "Please check your email to verify your account." });
         }
@@ -102,13 +100,11 @@ const Login = () => {
           const errorText = typeof error === "object" ? JSON.stringify(error, null, 2) : String(error);
           setSupabaseLog(errorText);
           setShowResend(/not confirmed|verify.*email|verification/i.test(error.message));
-          logSecurityEvent("login_failed", { email: sanitizedEmail, error: error.message });
           await logAuthAction('login', 'failed', { email: sanitizedEmail, error: error.message });
           toast({ title: "Login Error", description: error.message, variant: "destructive" });
         } else {
           setSupabaseLog(null);
           setShowResend(false);
-          logSecurityEvent('login_success', { email: sanitizedEmail });
           await logAuthAction('login', 'success', { email: sanitizedEmail });
           navigate("/siem");
         }
@@ -117,7 +113,6 @@ const Login = () => {
       const message = error instanceof Error ? error.message : String(error);
       setSupabaseLog(typeof error === "object" ? JSON.stringify(error, null, 2) : String(error));
       setShowResend(/not confirmed|verify.*email|verification/i.test(message));
-      logSecurityEvent("auth_error", { email: sanitizedEmail, error: message });
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setLoading(false);

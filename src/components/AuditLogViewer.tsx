@@ -4,17 +4,35 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSecurityMonitoring } from "@/hooks/useAuditLogging";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import { Shield, Search, Filter, RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
 
 const AuditLogViewer = () => {
-  const { auditLogs, isLoading, loadRecentLogs, loadLogsByType, loadCriticalLogs } = useSecurityMonitoring();
+  const { auditLogs, isLoading, loadRecentLogs, loadLogsByType, loadCriticalLogs, appendAuditLog } = useSecurityMonitoring();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterSeverity, setFilterSeverity] = useState("all");
 
   useEffect(() => {
     loadRecentLogs(100);
-  }, []);
+  }, [loadRecentLogs]);
+
+  useSupabaseRealtime(
+    "audit-log-viewer",
+    [
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "security_logs",
+        callback: ({ new: payloadNew }) => {
+          if (payloadNew) {
+            appendAuditLog(payloadNew);
+          }
+        },
+      },
+    ],
+    [appendAuditLog]
+  );
 
   const handleFilter = async () => {
     if (filterSeverity === "critical") {

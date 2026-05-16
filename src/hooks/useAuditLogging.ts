@@ -106,10 +106,15 @@ export const useAuditLogging = (options: UseAuditLoggingOptions = {}) => {
     []
   );
 
+  const appendAuditLog = useCallback((entry: any) => {
+    setAuditLogs((prev) => [entry, ...prev].slice(0, 200));
+  }, []);
+
   return {
     validateAndInsert,
     logAuthAction,
     fetchAuditLogs,
+    appendAuditLog,
     isValidating,
     errors,
     warnings,

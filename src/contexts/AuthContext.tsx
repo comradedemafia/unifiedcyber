@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSecurityEvent } from "@/utils/security";
+import { logAuthEvent } from "@/utils/api-validation";
 
 interface AuthContextType {
   user: User | null;
@@ -101,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const timeSinceActivity = Date.now() - parseInt(lastActivity, 10);
         if (timeSinceActivity > 60 * 60 * 1000) {
           logSecurityEvent("auto_sign_out_inactivity", { idleMinutes: Math.floor(timeSinceActivity / 60000) });
+          void logAuthEvent("logout", "success", { reason: "auto_sign_out_inactivity", idleMinutes: Math.floor(timeSinceActivity / 60000) });
           await signOut();
           return;
         }
@@ -137,6 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!error) {
         touchSecurityActivity();
         logSecurityEvent("signup_success", { email, role });
+        void logAuthEvent("signup", "success", { email, role });
 
         if (data?.user?.id) {
           const { error: roleError } = await supabase.from("user_roles").insert([{
@@ -154,6 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error("Sign up error:", error);
       logSecurityEvent("signup_error", { email, error: error instanceof Error ? error.message : String(error) });
+      void logAuthEvent("signup", "failed", { email, error: error instanceof Error ? error.message : String(error) });
       return { error };
     }
   };
@@ -168,13 +172,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!error) {
         touchSecurityActivity();
         logSecurityEvent("resend_verification_success", { email });
+      void logAuthEvent("password_reset", "success", { email });
       } else {
         logSecurityEvent("resend_verification_error", { email, error: error.message });
+        void logAuthEvent("password_reset", "failed", { email, error: error.message });
       }
       return { error };
     } catch (error) {
       console.error("Resend verification error:", error);
       logSecurityEvent("resend_verification_error", { email, error: error instanceof Error ? error.message : String(error) });
+      void logAuthEvent("password_reset", "failed", { email, error: error instanceof Error ? error.message : String(error) });
       return { error };
     }
   };
@@ -185,6 +192,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!error) {
         touchSecurityActivity();
         logSecurityEvent("signin_success", { email });
+        void logAuthEvent("login", "success", { email });
+      }
+      if (error) {
+        void logAuthEvent("login", "failed", { email, error: error instanceof Error ? error.message : String(error) });
       }
       return { error };
     } catch (error) {
