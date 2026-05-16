@@ -582,6 +582,8 @@ const Dashboard = () => {
             <TerminalAuditLogViewer />
           </div>
         </ErrorBoundary>
+      </div>
+    </div>
       </main>
     </div>
   );
