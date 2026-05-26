@@ -34,6 +34,8 @@ import SecurityReports from "@/components/SecurityReports";
 import AttackSimulationPanel from "@/components/AttackSimulationPanel";
 import TerminalAuditLogViewer from "@/components/TerminalAuditLogViewer";
 import RoleBadge from "@/components/RoleBadge";
+import IntegrationManager from "@/components/IntegrationManager";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -64,6 +66,8 @@ const Dashboard = () => {
       mountedRef.current = false;
     };
   }, []);
+
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     const loadData = async () => {
@@ -584,7 +588,13 @@ const Dashboard = () => {
         </ErrorBoundary>
       </div>
     </div>
-      </main>
+          {/* Integrations admin panel for authorized users */}
+          {isAdmin && (
+            <section id="integrations" className="mt-8">
+              <IntegrationManager />
+            </section>
+          )}
+        </main>
     </div>
   );
 };

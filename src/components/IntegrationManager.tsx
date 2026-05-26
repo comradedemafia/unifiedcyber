@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export type Integration = {
   id: string;
@@ -8,10 +9,28 @@ export type Integration = {
 };
 
 const API = {
-  list: () => fetch('/api/v1/integrations').then(r => r.json()),
-  create: (body: any) => fetch('/api/v1/integrations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (id: string) => fetch(`/api/v1/integrations/${id}`, { method: 'DELETE' }).then(r => r.json()),
-  proxy: (id: string, payload: any) => fetch(`/api/v1/integrations/${id}/proxy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json()),
+  withAuth: async (opts: RequestInit = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const headers = Object.assign({}, opts.headers || {}, token ? { Authorization: `Bearer ${token}` } : {});
+    return { ...opts, headers };
+  },
+  list: async () => {
+    const opts = await API.withAuth();
+    return fetch('/api/v1/integrations', opts).then(r => r.json());
+  },
+  create: async (body: any) => {
+    const opts = await API.withAuth({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return fetch('/api/v1/integrations', opts).then(r => r.json());
+  },
+  delete: async (id: string) => {
+    const opts = await API.withAuth({ method: 'DELETE' });
+    return fetch(`/api/v1/integrations/${id}`, opts).then(r => r.json());
+  },
+  proxy: async (id: string, payload: any) => {
+    const opts = await API.withAuth({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    return fetch(`/api/v1/integrations/${id}/proxy`, opts).then(r => r.json());
+  },
 };
 
 export default function IntegrationManager(): JSX.Element {
