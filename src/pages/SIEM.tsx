@@ -114,8 +114,8 @@ const SIEM = () => {
 
   const stats = {
     totalEvents: allEvents.length,
-    critical: allEvents.filter(e => e.severity === "critical").length,
-    high: allEvents.filter(e => e.severity === "high").length,
+    critical: allEvents.filter(e => (e as any).severity === "critical").length,
+    high: allEvents.filter(e => (e as any).severity === "high").length,
     blocked: blockedIps.length,
   };
 
@@ -212,7 +212,7 @@ const SIEM = () => {
 
         {/* GeoIP Threat Map */}
         <div className="mb-6">
-          <GeoThreatMap events={allEvents} />
+          <GeoThreatMap /> {/* No longer passes events as prop */}
         </div>
 
         <Tabs defaultValue="unified" className="space-y-4">
@@ -240,7 +240,7 @@ const SIEM = () => {
                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                           <Badge variant="secondary" className="text-[8px]">{sourceLabel(e._source)}</Badge>
                           <span className="text-[11px] font-mono text-foreground truncate">
-                            {e.alert_type || e.incident_type || e.action || "Event"}
+                            {e.alert_type || e.type || e.action || "Event"}
                           </span>
                           {e.severity && <Badge variant={e.severity === "critical" ? "destructive" : "secondary"} className="text-[8px]">{e.severity}</Badge>}
                         </div>
@@ -330,7 +330,7 @@ const SIEM = () => {
                       <Flame className={`w-3.5 h-3.5 mt-0.5 ${sevColor(inc.severity)}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[11px] font-mono text-foreground">{inc.incident_type}</span>
+                          <span className="text-[11px] font-mono text-foreground">{inc.type}</span>
                           <Badge variant={inc.severity === "critical" ? "destructive" : "secondary"} className="text-[8px]">{inc.severity}</Badge>
                           <Badge variant={inc.status === "resolved" ? "secondary" : "destructive"} className="text-[8px]">{inc.status}</Badge>
                           <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />

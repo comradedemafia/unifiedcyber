@@ -282,8 +282,8 @@ export const sessionManager = {
 // Data Encryption Helper (for sensitive fields)
 export const dataEncryption = {
   encryptSensitiveField: async (data: string, keyMaterial?: string): Promise<string> => {
-    // In production, use actual encryption library (crypto-js or TweetNaCl.js)
-    // This is a simplified demo version
+    // In production, use an audited encryption library (crypto-js or TweetNaCl.js)
+    // Client-side hashing used as a placeholder; perform real encryption server-side
     const encoder = new TextEncoder();
     const encoded = encoder.encode(data);
     const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);

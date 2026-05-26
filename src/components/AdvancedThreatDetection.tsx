@@ -10,6 +10,7 @@ import {
 import { analyzeUserBehavior, AnomalyScore, automatedThreatResponse } from '@/utils/advancedSecurity';
 import { getAuditLogs } from '@/utils/api-validation';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ThreatAlert {
   id: string;
@@ -27,6 +28,7 @@ const AdvancedThreatDetection = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -54,7 +56,7 @@ const AdvancedThreatDetection = () => {
   const analyzeSystemThreats = async () => {
     try {
       const logs = await getAuditLogs(undefined, undefined, 200);
-      const userId = localStorage.getItem('current_user_id') || 'anonymous';
+      const userId = (user?.id) || 'anonymous';
       const anomalyScore = analyzeUserBehavior(userId, logs);
 
       setAnomalyScores(prev => [anomalyScore, ...prev].slice(0, 10));

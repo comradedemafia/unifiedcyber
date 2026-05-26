@@ -4,10 +4,14 @@ import {
   Shield, AlertTriangle, Ban, RotateCcw, CheckCircle2, 
   Activity, Zap, Server, Globe, Lock, Eye,
   ChevronRight, Play, Clock, ArrowDownToLine, ArrowUpFromLine,
-  ShieldCheck, ShieldOff, Flame, Filter, Pause, Settings2,
+  ShieldCheck, ShieldOff, Flame, Filter, Pause, Settings2, Plus, XCircle,
   Wifi, Radar, ShieldAlert, Crosshair, ScanSearch, Bug, KeyRound
 } from "lucide-react";
 import EncryptionPanel from "./EncryptionPanel";
+import { supabase } from "@/integrations/supabase/client";
+import { logSecurityEvent } from "@/utils/securityLogger";
+import { useRealtimeIncidents } from "@/hooks/useRealtimeIncidents";
+import { Button } from "@/components/ui/button";
 
 type Phase = "idle" | "detection" | "containment" | "recovery" | "complete";
 type TabView = "response" | "firewall" | "ids" | "ips" | "encryption";
@@ -18,10 +22,11 @@ interface Incident {
   source: string;
   severity: "critical" | "high" | "medium";
   timestamp: string;
-  phase: Phase;
+  status: "active" | "investigating" | "resolved" | "complete"; // Maps to DB status
   detectionLog: string[];
   containmentLog: string[];
   recoveryLog: string[];
+  phase: Phase;
 }
 
 interface TrafficEntry {
@@ -176,13 +181,16 @@ const phaseConfig = {
 const IncidentResponse = () => {
   const [activeTab, setActiveTab] = useState<TabView>("response");
   // Incident Response state
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [localProcessingIncidents, setLocalProcessingIncidents] = useState<Incident[]>([]);
   const [activeIncident, setActiveIncident] = useState<Incident | null>(null);
   const [isAutoMode, setIsAutoMode] = useState(true);
   const [totalResolved, setTotalResolved] = useState(0);
   const [avgResponseTime, setAvgResponseTime] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
   const processingRef = useRef(false);
+
+  // Real-time incidents from DB
+  const { incidents: dbIncidents, loading: dbIncidentsLoading } = useRealtimeIncidents(50);
 
   // Firewall state
   const [traffic, setTraffic] = useState<TrafficEntry[]>([]);
@@ -220,13 +228,14 @@ const IncidentResponse = () => {
     logKey: "detectionLog" | "containmentLog" | "recoveryLog"
   ) => {
     const atk = ATTACK_TYPES.find(a => a.type === incident.type) || ATTACK_TYPES[0];
-    setIncidents(prev => prev.map(inc => inc.id === incident.id ? { ...inc, phase } : inc));
-    setActiveIncident(prev => prev?.id === incident.id ? { ...prev, phase } : prev);
+    setLocalProcessingIncidents(prev => prev.map(inc => inc.id === incident.id ? { ...inc, phase } : inc));
+
     for (const logFn of logs) {
       await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
       const logLine = logFn(atk);
-      setIncidents(prev => prev.map(inc => inc.id === incident.id ? { ...inc, [logKey]: [...inc[logKey], logLine] } : inc));
-      setActiveIncident(prev => prev?.id === incident.id ? { ...prev, [logKey]: [...prev[logKey], logLine] } : prev);
+      setLocalProcessingIncidents(prev => prev.map(inc => 
+        inc.id === incident.id ? { ...inc, [logKey]: [...(inc[logKey] || []), logLine] } : inc
+      ));
       scrollLog();
     }
   }, [scrollLog]);
@@ -236,32 +245,49 @@ const IncidentResponse = () => {
     processingRef.current = true;
     const start = Date.now();
     setActiveIncident(incident);
+
+    // Update DB status to 'investigating'
+    await supabase.from('security_incidents').update({ status: 'investigating' }).eq('id', incident.id);
+
     await processPhase(incident, "detection", DETECTION_LOGS, "detectionLog");
     await new Promise(r => setTimeout(r, 600));
     await processPhase(incident, "containment", CONTAINMENT_LOGS, "containmentLog");
     await new Promise(r => setTimeout(r, 600));
     await processPhase(incident, "recovery", RECOVERY_LOGS, "recoveryLog");
     const elapsed = (Date.now() - start) / 1000;
-    setIncidents(prev => prev.map(inc => inc.id === incident.id ? { ...inc, phase: "complete" } : inc));
+
+    setLocalProcessingIncidents(prev => prev.map(inc => inc.id === incident.id ? { ...inc, phase: "complete", status: "resolved" } : inc));
+    await supabase.from('security_incidents').update({ status: 'resolved' }).eq('id', incident.id);
+
     setActiveIncident(prev => prev?.id === incident.id ? { ...prev, phase: "complete" } : prev);
     setTotalResolved(prev => prev + 1);
     setAvgResponseTime(prev => prev === 0 ? elapsed : (prev + elapsed) / 2);
     processingRef.current = false;
   }, [processPhase]);
 
-  // Auto incidents
+  // Sync dbIncidents with localProcessingIncidents
   useEffect(() => {
-    if (!isAutoMode) return;
-    const generate = () => {
-      const atk = ATTACK_TYPES[Math.floor(Math.random() * ATTACK_TYPES.length)];
-      const incident: Incident = { id: `INC-${Date.now()}`, type: atk.type, source: atk.source, severity: atk.severity, timestamp: new Date().toLocaleTimeString(), phase: "idle", detectionLog: [], containmentLog: [], recoveryLog: [] };
-      setIncidents(prev => [incident, ...prev].slice(0, 10));
-      if (!processingRef.current) handleIncident(incident);
-    };
-    generate();
-    const iv = setInterval(generate, 18000);
-    return () => clearInterval(iv);
-  }, [isAutoMode, handleIncident]);
+    if (dbIncidentsLoading) return;
+
+    dbIncidents.forEach(dbInc => {
+      if (!localProcessingIncidents.some(locInc => locInc.id === dbInc.id)) {
+        if (dbInc.status === 'active' || dbInc.status === 'investigating') {
+          const newLocalInc: Incident = {
+            id: dbInc.id,
+            type: dbInc.type, 
+            source: dbInc.source_ip,
+            severity: dbInc.severity,
+            timestamp: dbInc.created_at,
+            status: dbInc.status,
+            phase: dbInc.status === 'active' ? 'idle' : 'detection',
+            detectionLog: [], containmentLog: [], recoveryLog: []
+          };
+          setLocalProcessingIncidents(prev => [newLocalInc, ...prev]);
+          if (!processingRef.current && isAutoMode) handleIncident(newLocalInc);
+        }
+      }
+    });
+  }, [dbIncidents, dbIncidentsLoading, localProcessingIncidents, handleIncident, isAutoMode]);
 
   // ── Firewall traffic ──
   useEffect(() => {
@@ -314,10 +340,21 @@ const IncidentResponse = () => {
   }, [ipsPaused]);
 
   const triggerManual = () => {
+    // When manually triggered, create a new incident via logSecurityEvent
     const atk = ATTACK_TYPES[Math.floor(Math.random() * ATTACK_TYPES.length)];
-    const incident: Incident = { id: `INC-${Date.now()}`, type: atk.type, source: atk.source, severity: atk.severity, timestamp: new Date().toLocaleTimeString(), phase: "idle", detectionLog: [], containmentLog: [], recoveryLog: [] };
-    setIncidents(prev => [incident, ...prev].slice(0, 10));
-    if (!processingRef.current) handleIncident(incident);
+    const newIncidentData = {
+      type: atk.type,
+      severity: atk.severity,
+      source_ip: atk.source,
+      description: `Manually simulated incident: ${atk.type} from ${atk.source}`,
+      // Add location data if available
+      // location: { lat: -6.17, lng: 35.74, city: 'Dodoma', country: 'Tanzania' }
+    };
+    logSecurityEvent(newIncidentData).then(res => {
+      if (res.data && res.data[0]) {
+        // The real-time hook will pick this up and add it to localProcessingIncidents
+      }
+    });
   };
 
   const currentPhase = activeIncident?.phase || "idle";
@@ -430,8 +467,8 @@ const IncidentResponse = () => {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
               {[
-                { label: "Active", value: incidents.filter(i => !["idle","complete"].includes(i.phase)).length, icon: AlertTriangle, color: "text-destructive" },
-                { label: "Resolved", value: totalResolved, icon: CheckCircle2, color: "text-success" },
+                { label: "Active", value: localProcessingIncidents.filter(i => i.status === "active" || i.status === "investigating").length, icon: AlertTriangle, color: "text-destructive" },
+                { label: "Resolved", value: localProcessingIncidents.filter(i => i.status === "resolved").length, icon: CheckCircle2, color: "text-success" },
                 { label: "Avg Response", value: `${avgResponseTime.toFixed(1)}s`, icon: Clock, color: "text-primary" },
                 { label: "Auto Mode", value: isAutoMode ? "ON" : "OFF", icon: Zap, color: isAutoMode ? "text-success" : "text-muted-foreground" },
               ].map(s => (
@@ -450,15 +487,15 @@ const IncidentResponse = () => {
                   <div className="flex items-center gap-2"><Shield className="w-4 h-4 text-primary" /><span className="text-xs font-mono text-foreground/80">Incidents</span></div>
                   <div className="flex gap-2">
                     <button onClick={() => setIsAutoMode(!isAutoMode)} className={`text-[9px] font-mono px-2 py-1 rounded border transition-all ${isAutoMode ? "bg-success/10 border-success/30 text-success" : "bg-muted/20 border-border/30 text-muted-foreground"}`}>{isAutoMode ? "AUTO" : "MANUAL"}</button>
-                    <button onClick={triggerManual} disabled={processingRef.current} className="text-[9px] font-mono px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 disabled:opacity-30"><Play className="w-2.5 h-2.5 inline mr-1" />SIMULATE</button>
+                    <Button onClick={triggerManual} disabled={processingRef.current} size="sm" className="text-[9px] font-mono px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 disabled:opacity-30"><Plus className="w-2.5 h-2.5 inline mr-1" />SIMULATE</Button> {/* Changed Play to Plus for clarity */}
                   </div>
                 </div>
                 <div className="h-[400px] overflow-y-auto">
                   <AnimatePresence>
-                    {incidents.map(inc => {
+                    {localProcessingIncidents.map(inc => { // Display local processing incidents
                       const pc = phaseConfig[inc.phase]; const Icon = pc.icon;
                       return (
-                        <motion.div key={inc.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} onClick={() => setActiveIncident(inc)}
+                        <motion.div key={inc.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} onClick={() => setActiveIncidentId(inc.id)}
                           className={`px-4 py-3 border-b border-border/20 cursor-pointer hover:bg-card/60 transition-all ${activeIncident?.id === inc.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <Icon className={`w-3.5 h-3.5 ${pc.color}`} />
@@ -473,7 +510,7 @@ const IncidentResponse = () => {
                       );
                     })}
                   </AnimatePresence>
-                  {incidents.length === 0 && <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30"><Shield className="w-8 h-8 mb-2" /><p className="text-xs font-mono">No incidents</p></div>}
+                  {localProcessingIncidents.length === 0 && <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30"><Shield className="w-8 h-8 mb-2" /><p className="text-xs font-mono">No incidents</p></div>}
                 </div>
               </div>
 

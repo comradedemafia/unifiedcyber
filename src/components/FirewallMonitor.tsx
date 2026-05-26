@@ -1,19 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, ShieldOff, ShieldCheck, ArrowDownToLine, ArrowUpFromLine, Ban, CheckCircle2, AlertTriangle, Flame, Globe, Server, Wifi, Filter, Play, Pause, Settings2, RotateCcw } from "lucide-react";
+import { Shield, ShieldOff, ShieldCheck, ArrowDownToLine, ArrowUpFromLine, Ban, CheckCircle2, AlertTriangle, Flame, Globe, Server, Wifi, Filter, Play, Pause, Settings2, RotateCcw, Activity } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from "@/integrations/supabase/client";
+import { logSecurityEvent } from "@/utils/securityLogger";
+import { useRealtimeFirewallLogs } from "@/hooks/useRealtimeFirewallLogs";
 
 interface TrafficEntry {
   id: string;
   direction: "inbound" | "outbound";
-  srcIP: string;
-  dstIP: string;
+  source_ip: string;
+  destination_ip: string;
   port: number;
   protocol: string;
-  status: "allowed" | "blocked";
+  action: "allowed" | "blocked";
   reason: string;
-  threat?: string;
+  threat_type?: string;
   timestamp: string;
-  bytes: number;
+  created_at: string; // From DB
+  bytes_transferred: number;
 }
 
 const maliciousPatterns = [
@@ -39,41 +44,42 @@ const safePatterns = [
 const randomIP = () => `${Math.floor(Math.random() * 223) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
 const localIP = () => `192.168.${Math.floor(Math.random() * 5) + 1}.${Math.floor(Math.random() * 250) + 1}`;
 
-const generateTraffic = (): TrafficEntry => {
+const API_BASE_URL = "http://localhost:3000/api/v1"; // Badilisha hii kulingana na server yako
+
+const generateTrafficAndLog = async () => {
   const isMalicious = Math.random() < 0.35;
   const isInbound = Math.random() < 0.6;
-  const now = new Date();
+  const srcIP = isInbound ? randomIP() : localIP();
+  const dstIP = isInbound ? localIP() : randomIP();
+  
+  const p = isMalicious 
+    ? maliciousPatterns[Math.floor(Math.random() * maliciousPatterns.length)]
+    : safePatterns[Math.floor(Math.random() * safePatterns.length)];
 
-  if (isMalicious) {
-    const p = maliciousPatterns[Math.floor(Math.random() * maliciousPatterns.length)];
-    return {
-      id: crypto.randomUUID(),
-      direction: isInbound ? "inbound" : "outbound",
-      srcIP: isInbound ? randomIP() : localIP(),
-      dstIP: isInbound ? localIP() : randomIP(),
-      port: p.port,
-      protocol: p.protocol,
-      status: "blocked",
-      reason: p.reason,
-      threat: p.threat,
-      timestamp: now.toLocaleTimeString("en-US", { hour12: false }),
-      bytes: Math.floor(Math.random() * 5000) + 64,
-    };
-  }
-
-  const p = safePatterns[Math.floor(Math.random() * safePatterns.length)];
-  return {
-    id: crypto.randomUUID(),
+  const entry = {
     direction: isInbound ? "inbound" : "outbound",
-    srcIP: isInbound ? randomIP() : localIP(),
-    dstIP: isInbound ? localIP() : randomIP(),
+    source_ip: srcIP,
+    destination_ip: dstIP,
     port: p.port,
     protocol: p.protocol,
-    status: "allowed",
+    action: isMalicious ? "blocked" : "allowed",
     reason: p.reason,
-    timestamp: now.toLocaleTimeString("en-US", { hour12: false }),
-    bytes: Math.floor(Math.random() * 50000) + 200,
+    type: isMalicious ? p.threat : null,
+    severity: isMalicious ? "high" : "low",
+    bytes_transferred: Math.floor(Math.random() * 5000) + 64,
+    description: isMalicious ? `Firewall blocked ${p.threat} from ${srcIP} to ${dstIP}:${p.port}.` : p.reason
   };
+
+  try {
+    // Mawasiliano yote sasa yanapitia kwenye API yako ya Node.js (mv.js)
+    await fetch(`${API_BASE_URL}/security-logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+  } catch (error) {
+    console.error("Imeshindwa kutuma logi kwenye API:", error);
+  }
 };
 
 const FirewallMonitor = () => {
@@ -96,23 +102,36 @@ const FirewallMonitor = () => {
   };
 
   useEffect(() => {
+    // Recalculate stats whenever traffic changes
+    let totalIn = 0, totalOut = 0, blocked = 0, allowed = 0, threats = 0, bytesProcessed = 0;
+    const entries = traffic || [];
+    entries.forEach(entry => {
+      if (entry.direction === "inbound") totalIn++;
+      else totalOut++;
+      if (entry.action === "blocked") blocked++;
+      else allowed++;
+      if (entry.threat_type) threats++;
+      bytesProcessed += entry.bytes_transferred;
+    });
+    setStats({ totalIn, totalOut, blocked, allowed, threats, bytesProcessed });
+  }, [traffic]);
+
+  useEffect(() => {
     if (paused || !firewallActive) return;
     const interval = setInterval(() => {
-      const entry = generateTraffic();
-      setTraffic(prev => [entry, ...prev].slice(0, 50));
-      setStats(prev => ({
-        totalIn: prev.totalIn + (entry.direction === "inbound" ? 1 : 0),
-        totalOut: prev.totalOut + (entry.direction === "outbound" ? 1 : 0),
-        blocked: prev.blocked + (entry.status === "blocked" ? 1 : 0),
-        allowed: prev.allowed + (entry.status === "allowed" ? 1 : 0),
-        threats: prev.threats + (entry.threat ? 1 : 0),
-        bytesProcessed: prev.bytesProcessed + entry.bytes,
-      }));
+      generateTrafficAndLog();
     }, 1200);
     return () => clearInterval(interval);
   }, [paused, firewallActive]);
 
-  const filtered = traffic.filter(t => filter === "all" || t.status === filter);
+  const filtered = traffic.filter(t => filter === "all" || t.action === filter);
+
+  // Tayarisha data kwa ajili ya Recharts (Vuta entry 20 za mwisho)
+  const chartData = traffic.slice(-20).map(t => ({
+    time: new Date(t.timestamp || t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    bytes: t.bytes_transferred,
+    action: t.action
+  }));
 
   const formatBytes = (b: number) => b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b > 1024 ? `${(b / 1024).toFixed(1)} KB` : `${b} B`;
 
@@ -165,6 +184,43 @@ const FirewallMonitor = () => {
             </motion.div>
           ))}
         </div>
+
+        {/* Throughput Graph */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          className="max-w-6xl mx-auto mb-6 p-4 rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-4 h-4 text-primary" />
+            <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider">Network Throughput (Bytes per Request)</span>
+          </div>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorBytes" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="time" hide />
+                <YAxis 
+                  tickFormatter={(value) => `${(value / 1024).toFixed(1)}K`}
+                  stroke="rgba(255,255,255,0.3)" 
+                  fontSize={10} 
+                  fontFamily="monospace"
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '10px', fontFamily: 'monospace' }}
+                  itemStyle={{ color: 'var(--primary)' }}
+                />
+                <Area type="monotone" dataKey="bytes" stroke="var(--primary)" fillOpacity={1} fill="url(#colorBytes)" animationDuration={500} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
 
         <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_280px] gap-5">
           {/* Traffic Feed */}
@@ -226,23 +282,23 @@ const FirewallMonitor = () => {
                     animate={{ opacity: 1, x: 0, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     className={`grid grid-cols-[60px_70px_130px_130px_55px_50px_1fr] gap-2 px-4 py-2 border-b border-border/20 text-[11px] font-mono items-center hover:bg-muted/20 transition-colors ${
-                      t.status === "blocked" ? "bg-destructive/5" : ""
+                      t.action === "blocked" ? "bg-destructive/5" : ""
                     }`}
                   >
-                    <span className={`flex items-center gap-1 font-bold ${t.status === "blocked" ? "text-destructive" : "text-success"}`}>
-                      {t.status === "blocked" ? <Ban className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                      <span className="hidden sm:inline">{t.status === "blocked" ? "DROP" : "PASS"}</span>
+                    <span className={`flex items-center gap-1 font-bold ${t.action === "blocked" ? "text-destructive" : "text-success"}`}>
+                      {t.action === "blocked" ? <Ban className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                      <span className="hidden sm:inline">{t.action === "blocked" ? "DROP" : "PASS"}</span>
                     </span>
                     <span className={`flex items-center gap-1 ${t.direction === "inbound" ? "text-primary" : "text-accent"}`}>
                       {t.direction === "inbound" ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
                       <span className="hidden sm:inline">{t.direction === "inbound" ? "IN" : "OUT"}</span>
                     </span>
-                    <span className="text-foreground/80 truncate">{t.srcIP}</span>
-                    <span className="text-foreground/80 truncate">{t.dstIP}</span>
+                    <span className="text-foreground/80 truncate">{t.source_ip}</span>
+                    <span className="text-foreground/80 truncate">{t.destination_ip}</span>
                     <span className="text-warning">{t.port}</span>
                     <span className="text-muted-foreground">{t.protocol}</span>
-                    <span className={`truncate ${t.threat ? "text-destructive/80" : "text-muted-foreground/60"}`}>
-                      {t.threat ? `⚠ ${t.threat}` : t.reason}
+                    <span className={`truncate ${t.threat_type ? "text-destructive/80" : "text-muted-foreground/60"}`}>
+                      {t.threat_type ? `⚠ ${t.threat_type}` : t.reason}
                     </span>
                   </motion.div>
                 ))}

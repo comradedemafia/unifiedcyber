@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Globe, MapPin, Ban, Plus, Trash2, Search, Shield, AlertTriangle, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRealtimeIncidents } from "@/hooks/useRealtimeIncidents";
 
 interface ThreatSource {
   ip: string;
@@ -38,11 +39,34 @@ const CVE_DATA = [
 
 const ThreatIntelligence = () => {
   const { user } = useAuth();
-  const [threats] = useState<ThreatSource[]>(KNOWN_THREATS);
+  const { incidents, loading } = useRealtimeIncidents(20);
   const [blockedIPs, setBlockedIPs] = useState<string[]>([]);
   const [newIP, setNewIP] = useState("");
   const [searchIP, setSearchIP] = useState("");
   const [activeView, setActiveView] = useState<"map" | "blacklist" | "cve">("map");
+
+  // Convert demo data to real data from the hook
+  const threats = useMemo(() => {
+    if (loading || !incidents.length) return KNOWN_THREATS;
+    
+    const grouped: Record<string, ThreatSource> = {};
+    incidents.forEach((inc: any) => {
+      const ip = inc.source_ip;
+      if (!grouped[ip]) {
+        grouped[ip] = {
+          ip,
+          country: inc.country || "Unknown",
+          lat: Number(inc.location_lat) || 0,
+          lng: Number(inc.location_lng) || 0,
+          attacks: 0,
+          type: inc.type || "Security Event",
+          severity: inc.severity as any
+        };
+      }
+      grouped[ip].attacks++;
+    });
+    return Object.values(grouped);
+  }, [incidents, loading]);
 
   // Load blocked IPs from database
   useEffect(() => {

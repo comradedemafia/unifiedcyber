@@ -30,7 +30,7 @@ const IncidentDetail = ({ incident, onClose, relatedAlerts, relatedFirewall, blo
     time: incident.created_at,
     icon: Search,
     title: "Threat Detected",
-    detail: `${incident.incident_type} detected from ${incident.source_ip || "unknown source"}`,
+    detail: `${incident.type} detected from ${incident.source_ip || "unknown source"}`,
     type: "detection",
   });
 

@@ -1,124 +1,123 @@
 
 
-# Mpango wa Kukamilisha Mfumo wa Ulinzi wa Mtandao (Cyber Defense System)
+# Plan to Complete the Cyber Defense System
 
-Mfumo uliopo tayari una vipengele vikuu vingi — Incident Response, Firewall, IDS/IPS, Encryption, Live Monitoring, Threat Feed, na Kali Terminal. Ili kuufanya uwe kamili zaidi kwa ulimwengu halisi wa kuzuia cyber attacks, hapa kuna maboresho muhimu:
-
----
-
-## Hatua 1: Admin Authentication & Dashboard ya Ulinzi
-
-Kuongeza mfumo wa login kwa admin ili arifa na data za usalama zilindwe.
-
-- Kuunda login/signup page kwa admin
-- Dashboard page yenye muhtasari wa hali ya mfumo (summary stats) — total threats blocked, active incidents, system health
-- Protected routes — dashboard haionekani bila login
-
-**Faili mpya:** `src/pages/Login.tsx`, `src/pages/Dashboard.tsx`, `src/contexts/AuthContext.tsx`
-**Mabadiliko:** `src/App.tsx` (routes), `src/components/Navbar.tsx` (login/logout button)
+The system is now moving towards real-time data reading. We have started removing the use of `localStorage` for logs and security settings to fully utilize Supabase.
 
 ---
 
-## Hatua 2: Database ya Kuhifadhi Security Events
+## Step 1: Admin Authentication & Defense Dashboard
 
-Kuunda database tables kwenye Lovable Cloud kwa ajili ya kuhifadhi:
+Adding a login system for the admin so that notifications and security data are protected.
 
-- **security_incidents** — incidents zilizotambuliwa (type, severity, source IP, status, timestamps)
+- Create a login/signup page for the admin
+- Dashboard page with a summary of the system status (summary stats) — total threats blocked, active incidents, system health
+- Protected routes — the dashboard is not visible without login
+
+**New files:** `src/pages/Login.tsx`, `src/pages/Dashboard.tsx`, `src/contexts/AuthContext.tsx`
+**Changes:** `src/App.tsx` (routes), `src/components/Navbar.tsx` (login/logout button)
+
+---
+
+## Step 2: Database for Storing Security Events
+
+Creating database tables on Lovable Cloud for storage:
+
+- **security_incidents** — security events (type, severity, source IP, status, location_lat, location_lng, timestamps)
 - **firewall_logs** — traffic entries (src/dst IP, port, status, threat type)
-- **threat_alerts** — alerts kutoka IDS/IPS
-- **blocked_ips** — IP addresses zilizozuiwa (blacklist)
+- **threat_alerts** — alerts from IDS/IPS
+- **blocked_ips** — blocked IP addresses (blacklist)
 
-RLS policies ili admin peke yake aweze kusoma/kuandika data.
-
----
-
-## Hatua 3: Real-Time Alert Notification System
-
-Mfumo wa kutoa arifa kwa admin moja kwa moja:
-
-- **In-app notifications** — bell icon kwenye navbar inayoonyesha idadi ya alerts mpya
-- **Notification panel** — slide-out panel inayoonyesha alerts za hivi karibuni zenye severity badges
-- **Sound alerts** — sauti ya onyo kwa critical threats
-- **Email notifications** — Edge Function itakayotuma email kwa admin kwa critical incidents
-
-**Faili mpya:** `src/components/NotificationPanel.tsx`, `supabase/functions/send-alert/index.ts`
+RLS policies so that only the admin can read/write data.
 
 ---
 
-## Hatua 4: Threat Intelligence & IP Reputation
+## Step 3: Real-Time Alert Notification System
 
-Kuongeza uwezo wa kuchunguza IP addresses:
+A system to provide alerts directly to the admin:
 
-- **IP Blacklist Management** — admin anaweza kuongeza/kuondoa IPs kutoka blacklist
-- **Threat Intelligence Feed** — kuonyesha known malicious IPs, CVEs, na attack patterns
-- **GeoIP Mapping** — ramani inayoonyesha mahali mashambulizi yanatoka (world map visualization)
-- **Auto-blocking** — IPs zinazo-repeat attacks zinazuiwa automatically
+- **In-app notifications** — bell icon on the navbar showing the number of new alerts
+- **Notification panel** — slide-out panel showing recent alerts with severity badges
+- **Sound alerts** — warning sound for critical threats
+- **Email notifications** — Edge Function that will send an email to the admin for critical incidents
 
-**Faili mpya:** `src/components/ThreatIntelligence.tsx`, `src/components/GeoThreatMap.tsx`
-
----
-
-## Hatua 5: Vulnerability Scanner Simulation
-
-Kuongeza scanner ya kutambua udhaifu kwenye mfumo:
-
-- **Port Scanner** — inaonyesha ports zilizo wazi na hatari zake
-- **Service Detection** — kutambua services zinazoendesha na versions zake
-- **CVE Checker** — kuangalia known vulnerabilities kwa services zilizotambuliwa
-- **Security Score** — overall score ya usalama wa mfumo (A-F grading)
-
-**Faili mpya:** `src/components/VulnerabilityScanner.tsx`
+**New files:** `src/components/NotificationPanel.tsx`, `supabase/functions/send-alert/index.ts`
 
 ---
 
-## Hatua 6: Automated Response Playbooks
+## Step 4: Threat Intelligence & IP Reputation
 
-Kuongeza playbooks za kiotomatiki kwa aina tofauti za mashambulizi:
+Adding the ability to investigate IP addresses:
+
+- **IP Blacklist Management** — admin can add/remove IPs from the blacklist
+- **Threat Intelligence Feed** — displaying known malicious IPs, CVEs, and attack patterns
+- **GeoIP Mapping** — map reads real lat/lng from the database for each new event
+- **Auto-blocking** — IPs with repeating attacks are blocked automatically
+
+**New files:** `src/components/ThreatIntelligence.tsx`, `src/components/GeoThreatMap.tsx`
+
+---
+
+## Step 5: Vulnerability Scanner Simulation
+
+Adding a scanner to identify vulnerabilities in the system:
+
+- **Port Scanner** — shows open ports and their risks
+- **Service Detection** — identifying running services and their versions
+- **CVE Checker** — checking for known vulnerabilities for identified services
+- **Security Score** — overall system security score (A-F grading)
+
+**New file:** `src/components/VulnerabilityScanner.tsx`
+
+---
+
+## Step 6: Automated Response Playbooks
+
+Adding automated playbooks for different types of attacks:
 
 - **DDoS Playbook** — rate limiting → IP block → CDN failover → admin alert
 - **Brute Force Playbook** — account lockout → IP ban → password policy enforcement
 - **Malware Playbook** — quarantine → scan → clean → restore
 - **Data Exfiltration Playbook** — network isolation → forensics → data integrity check
 
-Kila playbook inaonyesha hatua kwa hatua na status ya kila hatua (running/complete/failed).
+Each playbook shows step-by-step progress and the status of each step (running/complete/failed).
 
-**Mabadiliko:** `src/components/IncidentResponse.tsx` (tab mpya ya Playbooks)
-
----
-
-## Hatua 7: Security Reports & Analytics
-
-Dashboard ya ripoti na uchambuzi:
-
-- **Daily/Weekly/Monthly reports** — muhtasari wa matukio ya usalama
-- **Trend charts** — mwelekeo wa mashambulizi kwa muda
-- **Top attacked services** — services zinazoshambuliwa zaidi
-- **Export capability** — download reports kama PDF
-
-**Faili mpya:** `src/components/SecurityReports.tsx`
+**Changes:** `src/components/IncidentResponse.tsx` (new Playbooks tab)
 
 ---
 
-## Mpangilio wa Utekelezaji
+## Step 7: Security Reports & Analytics
 
-| Hatua | Kipaumbele | Sababu |
+Reports and analysis dashboard:
+
+- **Daily/Weekly/Monthly reports** — summary of security events
+- **Trend charts** — attack trends over time
+- **Top attacked services** — most targeted services
+- **Export capability** — download reports as PDF
+
+**New file:** `src/components/SecurityReports.tsx`
+
+---
+
+## Implementation Schedule
+
+| Step | Priority | Reason |
 |-------|-----------|--------|
-| 1. Auth & Dashboard | Juu | Msingi wa mfumo wote — kulinda data |
-| 2. Database | Juu | Kuhifadhi events za kweli |
-| 3. Notifications | Juu | Admin lazima apate arifa |
-| 4. Threat Intelligence | Kati | Kuongeza uwezo wa uchambuzi |
-| 5. Vulnerability Scanner | Kati | Kutambua udhaifu mapema |
-| 6. Playbooks | Kati | Kuzuia mashambulizi kiotomatiki |
-| 7. Reports | Chini | Uchambuzi wa muda mrefu |
+| 1. Auth & Dashboard | High | Base of the entire system — data protection |
+| 2. Database | High | Storing real events |
+| 3. Notifications | High | Admin must receive alerts |
+| 4. Threat Intelligence | Medium | Increasing analysis capabilities |
+| 5. Vulnerability Scanner | Medium | Identifying vulnerabilities early |
+| 6. Playbooks | Medium | Automatically preventing attacks |
+| 7. Reports | Low | Long-term analysis |
 
 ---
 
-## Maelezo ya Kiufundi
+## Technical Details
 
-- Authentication itatumia Lovable Cloud auth (email/password)
-- Database migrations kwa tables zote na RLS policies
-- Edge Function kwa email alerts (kutumia LOVABLE_API_KEY iliyopo)
-- Recharts kwa charts na analytics
-- Framer Motion kwa animations za real-time
-- Data ya simulation itahifadhiwa kwenye database kwa ajili ya analytics na reports
-
+- Authentication will use Lovable Cloud auth (email/password)
+- Database migrations for all tables and RLS policies
+- Edge Function for email alerts (using existing LOVABLE_API_KEY)
+- Recharts for charts and analytics
+- Framer Motion for real-time animations
+- Simulation data will be stored in the database for analytics and reports

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Globe, MapPin, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useRealtimeIncidents, Incident } from "@/hooks/useRealtimeIncidents"; // Import Incident type
 
 interface ThreatPoint {
   ip: string;
@@ -81,16 +82,19 @@ const WORLD_PATHS = [
 ];
 
 interface GeoThreatMapProps {
-  events: Array<{ source_ip?: string; severity?: string; alert_type?: string; incident_type?: string; action?: string }>;
+  events?: Array<{ source_ip?: string; severity?: string; alert_type?: string; incident_type?: string; action?: string }>;
 }
 
-const GeoThreatMap = ({ events }: GeoThreatMapProps) => {
+const GeoThreatMap = ({ events: propEvents }: GeoThreatMapProps) => {
   const [selectedPoint, setSelectedPoint] = useState<ThreatPoint | null>(null);
   const [animatingPoints, setAnimatingPoints] = useState<number[]>([]);
 
+  const { incidents: hookEvents } = useRealtimeIncidents(50);
+  const events = propEvents || hookEvents || [];
+
   const threatPoints = useMemo(() => {
     const grouped: Record<string, ThreatPoint> = {};
-    events.forEach((e) => {
+    events.forEach((e: any) => {
       const ip = e.source_ip;
       if (!ip) return;
       const geo = ipToGeo(ip);
@@ -100,7 +104,7 @@ const GeoThreatMap = ({ events }: GeoThreatMapProps) => {
           ip,
           ...geo,
           severity: e.severity || "medium",
-          type: e.alert_type || e.incident_type || e.action || "unknown",
+          type: e.type || e.incident_type || "unknown", // Use 'type' from security_incidents
           count: 0,
         };
       }

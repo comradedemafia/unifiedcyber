@@ -3,6 +3,7 @@ import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import { AlertTriangle, Shield, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { logSecurityEvent } from "@/utils/securityLogger";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ThreatPattern {
@@ -121,6 +122,15 @@ const IntrusionDetection = () => {
       detected_pattern: threat.type,
       timestamp: new Date().toISOString(),
     };
+    
+    // Also log as a general security event
+    await logSecurityEvent({
+      type: alert.alert_type,
+      severity: alert.severity as any,
+      source_ip: alert.source_ip,
+      description: alert.message,
+      // location: { lat: ..., lng: ..., city: ..., country: ... } // Add if GeoIP is used
+    });
 
     setActiveAlerts(prev => [alert, ...prev].slice(0, 10));
 
