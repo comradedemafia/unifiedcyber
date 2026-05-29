@@ -5,15 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 
-const simulatedNotificationTypes = [
-  { type: "DDoS Attack", severity: "critical", msg: "DDoS SYN flood detected from multiple sources" },
-  { type: "SQL Injection", severity: "high", msg: "SQL injection attempt blocked on /api/login" },
-  { type: "Brute Force", severity: "high", msg: "Multiple failed login attempts from single IP" },
-  { type: "Malware", severity: "critical", msg: "Malware signature detected in uploaded file" },
-  { type: "Port Scan", severity: "medium", msg: "Sequential port scanning detected" },
-  { type: "XSS Attempt", severity: "medium", msg: "Cross-site scripting payload blocked by WAF" },
-];
-
 const getSeverityIcon = (severity: string) => {
   if (severity === "critical") return <Flame className="w-3.5 h-3.5 text-destructive" />;
   if (severity === "high") return <AlertTriangle className="w-3.5 h-3.5 text-warning" />;
@@ -64,29 +55,35 @@ const NotificationPanel = () => {
     }
   };
 
-  // Generate simulation notifications
   useEffect(() => {
-    const addNotif = () => {
-      const t = simulatedNotificationTypes[Math.floor(Math.random() * simulatedNotificationTypes.length)];
-      const notif: Notification = {
-        id: crypto.randomUUID(),
-        type: t.type,
-        severity: t.severity,
-        message: t.msg,
-        source_ip: `${Math.floor(Math.random() * 223) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
-        timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
-        is_read: false,
-      };
-      setNotifications(prev => [notif, ...prev].slice(0, 50));
-      playBeep(t.severity);
+    const loadRecentAlerts = async () => {
+      const { data, error } = await supabase
+        .from("threat_alerts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error("NotificationPanel load failed", error);
+        return;
+      }
+
+      setNotifications(
+        (data || []).map((row: any) => ({
+          id: row.id,
+          type: row.alert_type,
+          severity: row.severity,
+          message: row.message,
+          source_ip: row.source_ip,
+          timestamp: new Date(row.created_at).toLocaleTimeString("en-US", { hour12: false }),
+          is_read: false,
+        }))
+      );
     };
 
-    addNotif();
-    const iv = setInterval(addNotif, 15000);
-    return () => clearInterval(iv);
-  }, [soundEnabled]);
+    loadRecentAlerts();
+  }, []);
 
-  // Subscribe to realtime alerts
   useSupabaseRealtime(
     "threat-alerts-notif",
     [
@@ -97,15 +94,18 @@ const NotificationPanel = () => {
         callback: (payload) => {
           const row = payload.new as any;
           if (!row) return;
-          setNotifications(prev => [{
-            id: row.id || crypto.randomUUID(),
-            type: row.alert_type,
-            severity: row.severity,
-            message: row.message,
-            source_ip: row.source_ip,
-            timestamp: new Date(row.created_at).toLocaleTimeString("en-US", { hour12: false }),
-            is_read: false,
-          }, ...prev].slice(0, 50));
+          setNotifications((prev) => [
+            {
+              id: row.id || crypto.randomUUID(),
+              type: row.alert_type,
+              severity: row.severity,
+              message: row.message,
+              source_ip: row.source_ip,
+              timestamp: new Date(row.created_at).toLocaleTimeString("en-US", { hour12: false }),
+              is_read: false,
+            },
+            ...prev,
+          ].slice(0, 50));
         },
       },
     ],

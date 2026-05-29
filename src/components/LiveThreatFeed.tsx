@@ -1,16 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, ShieldAlert, Bug, Skull, Clock, Pause, Play, Filter } from "lucide-react";
+import { AlertTriangle, ShieldAlert, Bug, Skull, Clock, Filter } from "lucide-react";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { supabase } from "@/integrations/supabase/client";
 
 type Severity = "critical" | "high" | "medium" | "low";
 
 interface Alert {
-  id: number;
-  time: string;
+  id: string;
+  createdAt: string;
+  alertType: string;
   severity: Severity;
   source: string;
   message: string;
-  icon: typeof Skull;
+  sourceIp?: string;
+  metadata: Record<string, any> | null;
 }
 
 const severityConfig: Record<Severity, { bg: string; dot: string; text: string }> = {
@@ -20,61 +24,74 @@ const severityConfig: Record<Severity, { bg: string; dot: string; text: string }
   low: { bg: "border-primary/15 bg-primary/5", dot: "bg-primary/60", text: "text-primary/70" },
 };
 
-const alertTemplates = [
-  { severity: "critical" as Severity, source: "Network", messages: [
-    "DDoS attack pattern — 12,000+ SYN packets/s from 45.33.x.x",
-    "Port scan from 10.0.0.55 — 2,400 ports in 15s",
-    "DNS exfiltration detected — base64 encoded TXT queries",
-  ], icon: Skull },
-  { severity: "high" as Severity, source: "Web", messages: [
-    "SQL Injection on /api/users — blocked by ModSecurity",
-    "XSS payload in search parameter — request dropped",
-    "Path traversal attempt: /../../etc/passwd — WAF rule triggered",
-    "CSRF token mismatch on /api/transfer — request rejected",
-  ], icon: ShieldAlert },
-  { severity: "medium" as Severity, source: "System", messages: [
-    "Unauthorized file modification: /etc/shadow",
-    "Failed sudo attempt by user 'guest' — 5 retries",
-    "Rootkit signature detected in /tmp/.hidden",
-    "Cron job modified: suspicious schedule added",
-  ], icon: Bug },
-  { severity: "low" as Severity, source: "System", messages: [
-    "New USB device connected on workstation-07",
-    "User 'admin' logged in from new IP 10.0.1.22",
-    "Package update available: openssh-server 9.6p1",
-  ], icon: AlertTriangle },
-];
+const iconBySeverity: Record<Severity, typeof Skull> = {
+  critical: Skull,
+  high: ShieldAlert,
+  medium: Bug,
+  low: AlertTriangle,
+};
 
-const generateAlert = (id: number): Alert => {
-  const template = alertTemplates[Math.floor(Math.random() * alertTemplates.length)];
-  const message = template.messages[Math.floor(Math.random() * template.messages.length)];
-  const now = new Date();
+const normalizeAlert = (row: any): Alert => {
+  const severity = (row.severity || "medium") as Severity;
+  const source = row.metadata?.usb_device
+    ? "USB"
+    : row.metadata?.endpoint_compromise
+    ? "Endpoint"
+    : row.alert_type || "System";
+
   return {
-    id,
-    time: now.toLocaleTimeString("en-US", { hour12: false }),
-    severity: template.severity,
-    source: template.source,
-    message,
-    icon: template.icon,
+    id: row.id,
+    createdAt: row.created_at,
+    alertType: row.alert_type || "Detection",
+    severity,
+    source,
+    message: row.message || "Threat event detected.",
+    sourceIp: row.source_ip || undefined,
+    metadata: row.metadata || null,
   };
 };
 
 const LiveThreatFeed = () => {
-  const [alerts, setAlerts] = useState<Alert[]>(() =>
-    Array.from({ length: 6 }, (_, i) => generateAlert(i))
-  );
-  const [paused, setPaused] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [filter, setFilter] = useState<Severity | "all">("all");
-  const counterRef = useRef(6);
+  const [loading, setLoading] = useState(true);
+
+  const loadAlerts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("threat_alerts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error("LiveThreatFeed load failed", error);
+      setAlerts([]);
+    } else {
+      setAlerts((data || []).map(normalizeAlert));
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (paused) return;
-    const interval = setInterval(() => {
-      counterRef.current += 1;
-      setAlerts((prev) => [generateAlert(counterRef.current), ...prev].slice(0, 20));
-    }, 3000 + Math.random() * 2000);
-    return () => clearInterval(interval);
-  }, [paused]);
+    loadAlerts();
+  }, []);
+
+  useSupabaseRealtime(
+    "live-threat-feed",
+    [
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "threat_alerts",
+        callback: (payload) => {
+          if (!payload?.new) return;
+          setAlerts((prev) => [normalizeAlert(payload.new), ...prev].slice(0, 20));
+        },
+      },
+    ],
+    []
+  );
 
   const filtered = filter === "all" ? alerts : alerts.filter((a) => a.severity === filter);
 
@@ -99,11 +116,10 @@ const LiveThreatFeed = () => {
             Threat <span className="text-destructive">Alerts</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto text-center">
-            Real-time correlated events from all security layers. New threats appear automatically.
+            Real-time correlated events from all security layers. New threats appear automatically when the system detects them.
           </p>
         </motion.div>
 
-        {/* Controls */}
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3 mb-5">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
@@ -121,47 +137,56 @@ const LiveThreatFeed = () => {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setPaused((p) => !p)}
-            className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full border border-border/40 text-muted-foreground hover:text-foreground hover:border-border transition-all"
-          >
-            {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-            {paused ? "RESUME" : "PAUSE"}
-          </button>
+          <div className="text-xs text-muted-foreground">
+            {loading ? "Loading live alerts…" : `${filtered.length} recent alert${filtered.length === 1 ? "" : "s"}`}
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto space-y-2 max-h-[500px] overflow-y-auto pr-1">
-          {filtered.map((a) => {
-            const config = severityConfig[a.severity];
-            return (
-              <motion.div
-                key={a.id}
-                initial={{ opacity: 0, x: -30, height: 0 }}
-                animate={{ opacity: 1, x: 0, height: "auto" }}
-                transition={{ duration: 0.3 }}
-                className={`group flex items-start gap-4 p-4 rounded-xl border ${config.bg} backdrop-blur-sm cursor-pointer hover:scale-[1.005] transition-transform duration-200`}
-              >
-                <div className="flex flex-col items-center gap-2 pt-1">
-                  <motion.div
-                    animate={{ scale: [1, 1.3, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className={`w-2 h-2 rounded-full ${config.dot}`}
-                  />
-                  <a.icon className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span className="font-mono text-[10px] text-muted-foreground/70 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />{a.time}
-                    </span>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${config.text}`}>{a.severity}</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-secondary/60 text-secondary-foreground border border-border/30">{a.source}</span>
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-border/50 bg-card/60 p-8 text-center text-sm text-muted-foreground">
+              {loading ? "Connecting to live alert stream…" : "No live threat alerts have arrived yet."}
+            </div>
+          ) : (
+            filtered.map((a) => {
+              const config = severityConfig[a.severity];
+              const Icon = iconBySeverity[a.severity];
+              return (
+                <motion.div
+                  key={a.id}
+                  initial={{ opacity: 0, x: -30, height: 0 }}
+                  animate={{ opacity: 1, x: 0, height: "auto" }}
+                  transition={{ duration: 0.3 }}
+                  className={`group flex items-start gap-4 p-4 rounded-xl border ${config.bg} backdrop-blur-sm cursor-pointer hover:scale-[1.005] transition-transform duration-200`}
+                >
+                  <div className="flex flex-col items-center gap-2 pt-1">
+                    <motion.div
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className={`w-2 h-2 rounded-full ${config.dot}`}
+                    />
+                    <Icon className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <p className="text-sm text-foreground/80 leading-relaxed">{a.message}</p>
-                </div>
-              </motion.div>
-            );
-          })}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                      <span className="font-mono text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />{new Date(a.createdAt).toLocaleTimeString("en-US", { hour12: false })}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${config.text}`}>{a.severity}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-secondary/60 text-secondary-foreground border border-border/30">{a.source}</span>
+                    </div>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{a.message}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground font-mono">
+                      <span>{a.alertType}</span>
+                      {a.sourceIp && <span>{a.sourceIp}</span>}
+                      {a.metadata?.usb_device && <span>USB: {String(a.metadata.usb_device)}</span>}
+                      {a.metadata?.endpoint && <span>Endpoint: {String(a.metadata.endpoint)}</span>}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
         </div>
       </div>
     </section>

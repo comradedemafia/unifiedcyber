@@ -5,79 +5,125 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   BarChart3, TrendingUp, AlertTriangle, CheckCircle2, Zap,
-  Activity, Target, Brain, AlertCircle
+  Activity, Target, Brain, AlertCircle, RefreshCw
 } from 'lucide-react';
-import { analyzeUserBehavior, AnomalyScore, automatedThreatResponse } from '@/utils/advancedSecurity';
-import { getAuditLogs } from '@/utils/api-validation';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 
 interface ThreatAlert {
   id: string;
-  type: string;
+  alert_type: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  source: string;
-  timestamp: number;
-  description: string;
-  actionTaken?: string;
+  source_ip?: string;
+  message: string;
+  created_at: string;
+  metadata?: Record<string, any>;
+  status?: string;
 }
 
 const AdvancedThreatDetection = () => {
-  const [anomalyScores, setAnomalyScores] = useState<AnomalyScore[]>([]);
   const [threatAlerts, setThreatAlerts] = useState<ThreatAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    const startDetection = async () => {
-      try {
-        await analyzeSystemThreats();
-      } catch (err) {
-        console.error('Error in AdvancedThreatDetection:', err);
-        setError('Failed to initialize threat detection');
-        setLoading(false);
-      }
-    };
-
-    void startDetection();
-    interval = setInterval(() => {
-      void analyzeSystemThreats();
-    }, 60000);
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, []);
-
-  const analyzeSystemThreats = async () => {
+  const loadThreats = async () => {
     try {
-      const logs = await getAuditLogs(undefined, undefined, 200);
-      const userId = (user?.id) || 'anonymous';
-      const anomalyScore = analyzeUserBehavior(userId, logs);
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('threat_alerts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      setAnomalyScores(prev => [anomalyScore, ...prev].slice(0, 10));
-
-      if (anomalyScore.riskLevel !== 'normal') {
-        generateThreatAlert(anomalyScore);
+      if (error) {
+        console.error('Failed to load threats:', error);
+        toast({ title: 'Error', description: 'Failed to load threat data', variant: 'destructive' });
+        return;
       }
 
-      setLoading(false);
+      setThreatAlerts(data || []);
     } catch (err) {
-      console.error('Error analyzing threats:', err);
-      setError('Failed to analyze threats');
+      console.error('Error loading threats:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const generateThreatAlert = (anomaly: AnomalyScore) => {
-    const threatType = anomaly.factors[0] || 'Unknown Threat';
-    let severity: ThreatAlert['severity'] = 'low';
-    
-    if (anomaly.riskLevel === 'critical') severity = 'critical';
-    else if (anomaly.riskLevel === 'high-risk') severity = 'high';
+  useEffect(() => {
+    loadThreats();
+  }, []);
+
+  // Subscribe to realtime threat updates
+  useSupabaseRealtime(
+    'threat-detection-realtime',
+    [
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'threat_alerts',
+        callback: (payload) => {
+          if (payload?.new) {
+            setThreatAlerts((prev) => [payload.new as any, ...prev].slice(0, 50));
+            if ((payload.new as any).severity === 'critical') {
+              toast({
+                title: 'Critical Threat Detected',
+                description: (payload.new as any).message,
+              });
+            }
+          }
+        },
+      },
+    ],
+    []
+  );
+
+  const threatsGrid = [
+    {
+      icon: AlertTriangle,
+      label: 'Critical',
+      value: threatAlerts.filter((a) => a.severity === 'critical').length,
+      color: 'text-destructive',
+    },
+    {
+      icon: AlertCircle,
+      label: 'High',
+      value: threatAlerts.filter((a) => a.severity === 'high').length,
+      color: 'text-warning',
+    },
+    {
+      icon: TrendingUp,
+      label: 'Medium',
+      value: threatAlerts.filter((a) => a.severity === 'medium').length,
+      color: 'text-accent',
+    },
+    {
+      icon: Activity,
+      label: 'Low',
+      value: threatAlerts.filter((a) => a.severity === 'low').length,
+      color: 'text-primary',
+    },
+  ];
+
+  const getSeverityColor = (severity: ThreatAlert['severity']) => {
+    switch (severity) {
+      case 'critical': return 'text-destructive';
+      case 'high': return 'text-warning';
+      case 'medium': return 'text-accent';
+      default: return 'text-primary';
+    }
+  };
+
+  const getSeverityBadge = (severity: ThreatAlert['severity']) => {
+    switch (severity) {
+      case 'critical': return 'destructive';
+      case 'high': return 'default';
+      case 'medium': return 'secondary';
+      default: return 'outline';
+    }
+  };
     else if (anomaly.riskLevel === 'suspicious') severity = 'medium';
 
     const newAlert: ThreatAlert = {
