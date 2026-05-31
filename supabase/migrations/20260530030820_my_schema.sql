@@ -418,6 +418,9 @@ alter table "public"."user_roles" drop constraint "user_roles_user_id_fkey";
 
 alter table "public"."user_roles" drop constraint "user_roles_user_id_role_key";
 
+drop trigger if exists "on_auth_user_created" on "auth"."users";
+drop trigger if exists "on_auth_user_created_role" on "auth"."users";
+
 drop function if exists "public"."audit_security_event"();
 
 drop function if exists "public"."get_audit_logs"(p_event_type text, p_severity public.audit_level, p_limit integer);
@@ -427,7 +430,6 @@ drop function if exists "public"."handle_new_user"();
 drop function if exists "public"."handle_new_user_role"();
 
 drop function if exists "public"."has_role"(_user_id uuid, _role public.app_role);
-
 drop function if exists "public"."log_auth_event"(p_event_type text, p_status text, p_details jsonb, p_ip_address text, p_user_agent text);
 
 drop function if exists "public"."log_security_event"(p_event_type text, p_action text, p_resource_type text, p_resource_id uuid, p_severity public.audit_level, p_status text, p_details jsonb, p_ip_address text, p_user_agent text, p_source_system text);
@@ -503,10 +505,6 @@ drop table "public"."user_roles";
 drop type "public"."app_role";
 
 drop type "public"."audit_level";
-
-drop trigger if exists "on_auth_user_created" on "auth"."users";
-
-drop trigger if exists "on_auth_user_created_role" on "auth"."users";
 
 drop trigger if exists "tr_check_filters" on "realtime"."subscription";
 
