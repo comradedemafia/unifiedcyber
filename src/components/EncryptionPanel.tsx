@@ -26,23 +26,55 @@ interface EncryptedItem {
   status: "encrypted" | "decrypted";
 }
 
-// Simulated encryption (Base64 + scramble for visual effect)
-const simulateEncrypt = (text: string): string => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-  let result = "";
-  for (let i = 0; i < text.length * 2; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return btoa(text).split("").reverse().join("") + result.slice(0, 12);
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+const toBase64 = (buffer: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+const fromBase64 = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+const generateAesKey = async (): Promise<CryptoKey> => {
+  return crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
 };
 
-const simulateHash = (text: string): string => {
-  const hex = "0123456789abcdef";
-  let hash = "";
-  for (let i = 0; i < 64; i++) {
-    hash += hex[Math.floor(Math.random() * 16)];
-  }
-  return hash;
+const generateRsaKeyPair = async (): Promise<CryptoKeyPair> => {
+  return crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 4096,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+};
+
+const encryptAesGcm = async (key: CryptoKey, plain: string): Promise<string> => {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    textEncoder.encode(plain)
+  );
+  return `${toBase64(iv.buffer)}:${toBase64(ciphertext)}`;
+};
+
+const encryptRsa = async (publicKey: CryptoKey, plain: string): Promise<string> => {
+  const result = await crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    publicKey,
+    textEncoder.encode(plain)
+  );
+  return toBase64(result);
+};
+
+const hashSha256 = async (text: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(text));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 };
 
 const ALGORITHMS = [
@@ -79,16 +111,34 @@ const EncryptionPanel = () => {
   const [selectedAlgo, setSelectedAlgo] = useState(0);
   const [showDecrypted, setShowDecrypted] = useState<Record<string, boolean>>({});
   const [autoEncrypt, setAutoEncrypt] = useState(true);
+  const [aesKey, setAesKey] = useState<CryptoKey | null>(null);
+  const [rsaKeyPair, setRsaKeyPair] = useState<CryptoKeyPair | null>(null);
   const [stats, setStats] = useState({ encrypted: 0, decrypted: 0, keysGenerated: 0, integrityChecks: 0 });
   const logRef = useRef<HTMLDivElement>(null);
 
   const addLog = useCallback((log: Omit<EncryptionLog, "id" | "timestamp">) => {
-    setLogs(prev => [{
+    setLogs((prev) => [{
       ...log,
       id: `ENC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
     }, ...prev].slice(0, 50));
   }, []);
+
+  useEffect(() => {
+    const initializeKeys = async () => {
+      try {
+        const [aes, rsa] = await Promise.all([generateAesKey(), generateRsaKeyPair()]);
+        setAesKey(aes);
+        setRsaKeyPair(rsa);
+        addLog({ type: "key-gen", algorithm: "RSA-4096", message: "Generated AES and RSA key material for encryption operations", status: "success" });
+        setStats((prev) => ({ ...prev, keysGenerated: prev.keysGenerated + 1 }));
+      } catch (error) {
+        addLog({ type: "alert", algorithm: "RSA-4096", message: "Unable to initialize crypto keys in this browser", status: "failed" });
+      }
+    };
+
+    initializeKeys();
+  }, [addLog]);
 
   // Auto-encryption of data streams
   useEffect(() => {
@@ -137,10 +187,32 @@ const EncryptionPanel = () => {
     if (logRef.current) logRef.current.scrollTop = 0;
   }, [logs]);
 
-  const handleEncrypt = () => {
+  const isReversible = (algorithm: string) => algorithm !== "SHA-256";
+
+  const getEncryptedPayload = async (algorithm: string, text: string) => {
+    if (algorithm === "SHA-256") {
+      return hashSha256(text);
+    }
+
+    if (algorithm === "AES-256-GCM") {
+      if (!aesKey) throw new Error("AES key material unavailable");
+      return encryptAesGcm(aesKey, text);
+    }
+
+    if (algorithm === "RSA-4096") {
+      if (!rsaKeyPair?.publicKey) throw new Error("RSA public key unavailable");
+      return encryptRsa(rsaKeyPair.publicKey, text);
+    }
+
+    // ChaCha20-Poly1305 fallback to AES-GCM in browser environment
+    if (!aesKey) throw new Error("AES key material unavailable");
+    return encryptAesGcm(aesKey, text);
+  };
+
+  const handleEncrypt = async () => {
     if (!inputText.trim()) return;
     const algo = ALGORITHMS[selectedAlgo];
-    const encrypted = simulateEncrypt(inputText);
+    const encrypted = await getEncryptedPayload(algo.name, inputText);
     const item: EncryptedItem = {
       id: `ITEM-${Date.now()}`,
       label: "Manual Input",
@@ -151,15 +223,15 @@ const EncryptionPanel = () => {
       timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
       status: "encrypted",
     };
-    setEncryptedItems(prev => [item, ...prev].slice(0, 20));
+    setEncryptedItems((prev) => [item, ...prev].slice(0, 20));
     addLog({ type: "encrypt", algorithm: algo.name, message: `[MANUAL] Data encrypted with ${algo.name} (${algo.keySize}-bit) ✓`, status: "success" });
-    setStats(prev => ({ ...prev, encrypted: prev.encrypted + 1 }));
+    setStats((prev) => ({ ...prev, encrypted: prev.encrypted + 1 }));
     setInputText("");
   };
 
-  const handleQuickEncrypt = (sample: typeof SAMPLE_DATA[0]) => {
+  const handleQuickEncrypt = async (sample: typeof SAMPLE_DATA[0]) => {
     const algo = ALGORITHMS[selectedAlgo];
-    const encrypted = simulateEncrypt(sample.data);
+    const encrypted = await getEncryptedPayload(algo.name, sample.data);
     const item: EncryptedItem = {
       id: `ITEM-${Date.now()}`,
       label: sample.label,
@@ -170,16 +242,20 @@ const EncryptionPanel = () => {
       timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
       status: "encrypted",
     };
-    setEncryptedItems(prev => [item, ...prev].slice(0, 20));
+    setEncryptedItems((prev) => [item, ...prev].slice(0, 20));
     addLog({ type: "encrypt", algorithm: algo.name, message: `[ENCRYPT] ${sample.label} encrypted → ${algo.name} (${algo.keySize}-bit) ✓`, status: "success" });
-    setStats(prev => ({ ...prev, encrypted: prev.encrypted + 1 }));
+    setStats((prev) => ({ ...prev, encrypted: prev.encrypted + 1 }));
   };
 
   const handleDecrypt = (item: EncryptedItem) => {
+    if (!isReversible(item.algorithm)) {
+      addLog({ type: "alert", algorithm: item.algorithm, message: `[DECRYPT] Cannot decrypt hashed output (${item.algorithm})`, status: "warning" });
+      return;
+    }
     addLog({ type: "decrypt", algorithm: item.algorithm, message: `[DECRYPT] Authorized decryption: ${item.label} → plaintext restored ✓`, status: "success" });
-    setStats(prev => ({ ...prev, decrypted: prev.decrypted + 1 }));
-    setShowDecrypted(prev => ({ ...prev, [item.id]: true }));
-    setEncryptedItems(prev => prev.map(i => i.id === item.id ? { ...i, status: "decrypted" } : i));
+    setStats((prev) => ({ ...prev, decrypted: prev.decrypted + 1 }));
+    setShowDecrypted((prev) => ({ ...prev, [item.id]: true }));
+    setEncryptedItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, status: "decrypted" } : i)));
   };
 
   const handleUnauthorizedDecrypt = (item: EncryptedItem) => {
@@ -359,7 +435,8 @@ const EncryptionPanel = () => {
                           <>
                             <button
                               onClick={() => handleDecrypt(item)}
-                              className="flex-1 py-1.5 rounded bg-success/10 text-success border border-success/20 font-mono text-[9px] hover:bg-success/20 transition-all flex items-center justify-center gap-1"
+                              disabled={!isReversible(item.algorithm)}
+                              className="flex-1 py-1.5 rounded bg-success/10 text-success border border-success/20 font-mono text-[9px] hover:bg-success/20 transition-all disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-1"
                             >
                               <Key className="w-2.5 h-2.5" /> Authorized Decrypt
                             </button>
@@ -377,6 +454,9 @@ const EncryptionPanel = () => {
                           </div>
                         )}
                       </div>
+                      {!isReversible(item.algorithm) && item.status === "encrypted" && (
+                        <div className="text-[9px] text-muted-foreground mt-1">SHA-256 output is one-way; decryption is not possible.</div>
+                      )}
                     </motion.div>
                   ))
                 )}

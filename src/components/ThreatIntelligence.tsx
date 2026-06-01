@@ -29,13 +29,12 @@ const KNOWN_THREATS: ThreatSource[] = [
   { ip: "41.215.241.50", country: "Kenya", lat: -1.2921, lng: 36.8219, attacks: 34, type: "Phishing", severity: "medium" },
 ];
 
-const CVE_DATA = [
-  { id: "CVE-2024-21762", service: "FortiOS SSL VPN", score: 9.8, status: "patched" },
-  { id: "CVE-2024-3400", service: "Palo Alto PAN-OS", score: 10.0, status: "active" },
-  { id: "CVE-2024-1709", service: "ScreenConnect", score: 10.0, status: "patched" },
-  { id: "CVE-2024-27198", service: "JetBrains TeamCity", score: 9.8, status: "active" },
-  { id: "CVE-2024-0204", service: "GoAnywhere MFT", score: 9.8, status: "patched" },
-];
+interface CveEntry {
+  id: string;
+  service: string;
+  score: number;
+  status: "active" | "patched" | "unknown";
+}
 
 const ThreatIntelligence = () => {
   const { user } = useAuth();
@@ -44,6 +43,9 @@ const ThreatIntelligence = () => {
   const [newIP, setNewIP] = useState("");
   const [searchIP, setSearchIP] = useState("");
   const [activeView, setActiveView] = useState<"map" | "blacklist" | "cve">("map");
+  const [cveData, setCveData] = useState<CveEntry[]>([]);
+  const [cveLoading, setCveLoading] = useState(true);
+  const [cveError, setCveError] = useState<string | null>(null);
 
   // Convert demo data to real data from the hook
   const threats = useMemo(() => {
@@ -71,11 +73,56 @@ const ThreatIntelligence = () => {
   // Load blocked IPs from database
   useEffect(() => {
     if (!user) return;
+
     const loadBlocked = async () => {
       const { data } = await supabase.from("blocked_ips").select("ip_address");
-      if (data) setBlockedIPs(data.map(d => d.ip_address));
+      if (data) setBlockedIPs(data.map((d) => d.ip_address));
     };
+
+    const loadCveData = async () => {
+      setCveLoading(true);
+      setCveError(null);
+      const { data, error } = await supabase
+        .from("threat_alerts")
+        .select("alert_type, severity, message, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) {
+        setCveError(error.message);
+        setCveData([]);
+        setCveLoading(false);
+        return;
+      }
+
+      const regex = /CVE-\d{4}-\d{4,7}/g;
+      const seen = new Map<string, CveEntry>();
+
+      (data ?? []).forEach((row) => {
+        const text = `${row.message ?? ""} ${row.alert_type ?? ""}`;
+        const matches = text.match(regex);
+        if (!matches) return;
+
+        matches.forEach((cve) => {
+          if (!seen.has(cve)) {
+            const score = row.severity === "critical" ? 10.0 : row.severity === "high" ? 9.0 : row.severity === "medium" ? 7.0 : 5.0;
+            const status = row.severity === "critical" || row.severity === "high" ? "active" : "patched";
+            seen.set(cve, {
+              id: cve,
+              service: row.alert_type ?? "Threat Alert",
+              score,
+              status,
+            });
+          }
+        });
+      });
+
+      setCveData(Array.from(seen.values()).slice(0, 20));
+      setCveLoading(false);
+    };
+
     loadBlocked();
+    loadCveData();
   }, [user]);
 
   const addToBlacklist = async () => {
@@ -268,32 +315,45 @@ const ThreatIntelligence = () => {
 
         {activeView === "cve" && (
           <div className="bg-card/50 border border-border/50 rounded-xl overflow-hidden">
-            <table className="w-full text-xs font-mono">
-              <thead>
-                <tr className="border-b border-border/50 text-muted-foreground">
-                  <th className="text-left p-3">CVE ID</th>
-                  <th className="text-left p-3">Affected Service</th>
-                  <th className="text-left p-3">CVSS Score</th>
-                  <th className="text-left p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {CVE_DATA.map((cve) => (
-                  <tr key={cve.id} className="border-b border-border/20 hover:bg-muted/10">
-                    <td className="p-3 text-primary">{cve.id}</td>
-                    <td className="p-3 text-foreground">{cve.service}</td>
-                    <td className="p-3">
-                      <span className={cve.score >= 9.0 ? "text-destructive" : "text-warning"}>{cve.score}</span>
-                    </td>
-                    <td className="p-3">
-                      <Badge variant={cve.status === "active" ? "destructive" : "secondary"} className="text-[9px]">
-                        {cve.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="p-4 border-b border-border/50">
+              <p className="text-sm text-muted-foreground">CVE inventory derived from live threat alerts stored in Supabase.</p>
+            </div>
+            {cveLoading ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">Loading CVE details…</div>
+            ) : cveError ? (
+              <div className="p-6 text-center text-sm text-destructive">Unable to load CVE data: {cveError}</div>
+            ) : cveData.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">No CVE-linked threat alerts found yet. Create an alert or check your Supabase data.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-border/50 text-muted-foreground">
+                      <th className="text-left p-3">CVE ID</th>
+                      <th className="text-left p-3">Affected Service</th>
+                      <th className="text-left p-3">CVSS Score</th>
+                      <th className="text-left p-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cveData.map((cve) => (
+                      <tr key={cve.id} className="border-b border-border/20 hover:bg-muted/10">
+                        <td className="p-3 text-primary">{cve.id}</td>
+                        <td className="p-3 text-foreground">{cve.service}</td>
+                        <td className="p-3">
+                          <span className={cve.score >= 9.0 ? "text-destructive" : "text-warning"}>{cve.score.toFixed(1)}</span>
+                        </td>
+                        <td className="p-3">
+                          <Badge variant={cve.status === "active" ? "destructive" : "secondary"} className="text-[9px]">
+                            {cve.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

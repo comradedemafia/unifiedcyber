@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Activity, Cpu, HardDrive, Wifi, ThermometerSun } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DataPoint {
   time: string;
@@ -35,41 +36,45 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const LiveMonitoring = () => {
-  const [data, setData] = useState<DataPoint[]>(() => {
-    const now = new Date();
-    return Array.from({ length: 20 }, (_, i) => {
-      const t = new Date(now.getTime() - (20 - i) * 3000);
-      return {
-        time: t.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        system: 20 + Math.floor(Math.random() * 60),
-        web: 15 + Math.floor(Math.random() * 50),
-        network: 25 + Math.floor(Math.random() * 70),
-      };
-    });
-  });
+  const [data, setData] = useState<DataPoint[]>([]);
+  const [sysInfo, setSysInfo] = useState({ cpu: 0, ram: 0, disk: 0, temp: 0, uptime: "14d 7h 23m" });
 
-  const [sysInfo, setSysInfo] = useState({ cpu: 34, ram: 62, disk: 45, temp: 52, uptime: "14d 7h 23m" });
+  const loadMetrics = async () => {
+    const [incidentsRes, alertsRes, logsRes] = await Promise.all([
+      supabase.from("security_incidents").select("id", { count: "exact", head: true }),
+      supabase.from("threat_alerts").select("id", { count: "exact", head: true }),
+      supabase.from("security_logs").select("id", { count: "exact", head: true }),
+    ]);
+
+    const incidentCount = incidentsRes.count ?? 0;
+    const alertCount = alertsRes.count ?? 0;
+    const logCount = logsRes.count ?? 0;
+
+    const now = new Date();
+    const point: DataPoint = {
+      time: now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      system: Math.min(95, Math.max(10, Math.floor(incidentCount * 2 + 20))),
+      web: Math.min(95, Math.max(10, Math.floor(alertCount * 2 + 15))),
+      network: Math.min(95, Math.max(10, Math.floor(logCount * 0.2 + 25))),
+    };
+
+    setData((prev) => {
+      const next = [...prev, point];
+      return next.length > 20 ? next.slice(next.length - 20) : next;
+    });
+
+    setSysInfo({
+      cpu: Math.min(95, Math.max(10, Math.floor(30 + incidentCount * 1.4))),
+      ram: Math.min(90, Math.max(30, Math.floor(35 + alertCount * 1.2))),
+      disk: Math.min(85, Math.max(20, Math.floor(30 + logCount * 0.1))),
+      temp: Math.min(75, Math.max(40, Math.floor(45 + incidentCount * 0.3))),
+      uptime: "14d 7h 23m",
+    });
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setData((prev) => [
-        ...prev.slice(1),
-        {
-          time: now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-          system: 20 + Math.floor(Math.random() * 60),
-          web: 15 + Math.floor(Math.random() * 50),
-          network: 25 + Math.floor(Math.random() * 70),
-        },
-      ]);
-      setSysInfo((prev) => ({
-        cpu: Math.min(95, Math.max(15, prev.cpu + Math.floor(Math.random() * 10 - 5))),
-        ram: Math.min(90, Math.max(40, prev.ram + Math.floor(Math.random() * 6 - 3))),
-        disk: prev.disk,
-        temp: Math.min(75, Math.max(40, prev.temp + Math.floor(Math.random() * 4 - 2))),
-        uptime: prev.uptime,
-      }));
-    }, 3000);
+    loadMetrics();
+    const interval = setInterval(loadMetrics, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -119,7 +124,6 @@ const LiveMonitoring = () => {
         </motion.div>
 
         <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_300px] gap-5">
-          {/* Chart */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -166,7 +170,6 @@ const LiveMonitoring = () => {
             </ResponsiveContainer>
           </motion.div>
 
-          {/* System health sidebar */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
