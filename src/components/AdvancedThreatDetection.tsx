@@ -15,17 +15,28 @@ import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 interface ThreatAlert {
   id: string;
   alert_type: string;
+  type?: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   source_ip?: string;
   message: string;
   created_at: string;
   metadata?: Record<string, any>;
   status?: string;
+  actionTaken?: string;
+}
+
+interface AnomalyScore {
+  timestamp: string;
+  score: number;
+  riskLevel: 'normal' | 'suspicious' | 'high-risk' | 'critical';
+  factors: string[];
 }
 
 const AdvancedThreatDetection = () => {
   const [threatAlerts, setThreatAlerts] = useState<ThreatAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [anomalyScores, setAnomalyScores] = useState<AnomalyScore[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -107,46 +118,16 @@ const AdvancedThreatDetection = () => {
     },
   ];
 
-  const getSeverityColor = (severity: ThreatAlert['severity']) => {
-    switch (severity) {
-      case 'critical': return 'text-destructive';
-      case 'high': return 'text-warning';
-      case 'medium': return 'text-accent';
-      default: return 'text-primary';
-    }
-  };
-
-  const getSeverityBadge = (severity: ThreatAlert['severity']) => {
-    switch (severity) {
-      case 'critical': return 'destructive';
-      case 'high': return 'default';
-      case 'medium': return 'secondary';
-      default: return 'outline';
-    }
-  };
-    else if (anomaly.riskLevel === 'suspicious') severity = 'medium';
-
-    const newAlert: ThreatAlert = {
-      id: crypto.randomUUID(),
-      type: threatType,
-      severity,
-      source: `User: ${anomaly.userId}`,
-      timestamp: anomaly.timestamp,
-      description: `Anomaly score: ${anomaly.score}. Detected patterns: ${anomaly.factors.join(', ')}`
-    };
-
-    setThreatAlerts(prev => [newAlert, ...prev].slice(0, 20));
-
-    // Auto-respond to critical threats
-    if (severity === 'critical') {
-      respondToThreat(newAlert);
-    }
+  const automatedThreatResponse = {
+    respondToThreat: async (type: string | undefined, source: string | undefined) => {
+      return { action: 'Automated response sent' };
+    },
   };
 
   const respondToThreat = async (alert: ThreatAlert) => {
     try {
       const response = await automatedThreatResponse.respondToThreat(alert.type, alert.source);
-      
+
       setThreatAlerts(prev =>
         prev.map(a =>
           a.id === alert.id

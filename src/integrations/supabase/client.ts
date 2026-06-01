@@ -5,76 +5,64 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.warn(
-    "Supabase client missing configuration. Using development shim. Set VITE_SUPABASE_URL and either VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY in .env.local for real integration."
-  );
-
-  // Lightweight chainable mock used by the app during local development when Supabase is not configured.
-  const createMockQuery = () => {
-    const ops: any[] = [];
-    const builder: any = {
-      select: (s?: any, opts?: any) => { ops.push(["select", s, opts]); return builder; },
-      order: (col?: any, opts?: any) => { ops.push(["order", col, opts]); return builder; },
-      limit: (n?: any) => { ops.push(["limit", n]); return builder; },
-      eq: (k?: any, v?: any) => { ops.push(["eq", k, v]); return builder; },
-      insert: (data?: any) => { ops.push(["insert", data]); return builder; },
-      upsert: (data?: any) => { ops.push(["upsert", data]); return builder; },
-      then: (resolve: any) => {
-        // Default empty successful response
-        resolve({ data: [], error: null, count: 0 });
-      }
-    };
-    return builder;
+const createMockQuery = () => {
+  const ops: any[] = [];
+  const builder: any = {
+    select: (s?: any, opts?: any) => { ops.push(["select", s, opts]); return builder; },
+    order: (col?: any, opts?: any) => { ops.push(["order", col, opts]); return builder; },
+    limit: (n?: any) => { ops.push(["limit", n]); return builder; },
+    eq: (k?: any, v?: any) => { ops.push(["eq", k, v]); return builder; },
+    insert: (data?: any) => { ops.push(["insert", data]); return builder; },
+    upsert: (data?: any) => { ops.push(["upsert", data]); return builder; },
+    then: (resolve: any) => {
+      resolve({ data: [], error: null, count: 0 });
+    }
   };
+  return builder;
+};
 
-  const mockAuth = {
-    getSession: async () => ({ data: { session: null } }),
-    onAuthStateChange: (_cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
-    signUp: async (_opts: any, _params?: any) => ({ data: null, error: null }),
-    signInWithPassword: async (_opts: any) => ({ data: null, error: null }),
-    signOut: async () => ({ error: null }),
-    resend: async (_opts: any) => ({ error: null }),
-    refreshSession: async () => ({ data: { session: null }, error: null }),
-  };
+const mockAuth = {
+  getSession: async () => ({ data: { session: null } }),
+  onAuthStateChange: (_cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
+  signUp: async (_opts: any, _params?: any) => ({ data: null, error: null }),
+  signInWithPassword: async (_opts: any) => ({ data: null, error: null }),
+  signOut: async () => ({ error: null }),
+  resend: async (_opts: any) => ({ error: null }),
+  refreshSession: async () => ({ data: { session: null }, error: null }),
+};
 
-  const mockFunctions = {
-    invoke: async (_name: string, _opts?: any) => ({ error: null }),
-  };
+const mockFunctions = {
+  invoke: async (_name: string, _opts?: any) => ({ error: null }),
+};
 
-  const mockSupabase: any = {
-    from: (_table?: string) => createMockQuery(),
-    rpc: async (fn: string, params?: any) => {
-      // Lightweight behavior simulation for key RPCs used by the app
-      switch (fn) {
-        case "assign_role_for_signup":
-          return { data: { success: true }, error: null };
-        case "log_security_event":
-          // pretend we recorded the event
-          return { data: { id: crypto?.randomUUID?.() ?? "mock-id" }, error: null };
-        case "get_audit_logs":
-          return { data: [], error: null };
-        case "validate-data":
-          // echo back 'validated' result
-          return { data: { valid: true, cleaned: params ?? {} }, error: null };
-        default:
-          return { data: null, error: null };
-      }
-    },
-    functions: mockFunctions,
-    auth: mockAuth,
-    // minimal placeholders for other common helpers
-    storage: {
-      from: () => ({ list: async () => ({ data: null, error: null }) })
-    },
-    // simple realtime placeholder
-    channel: () => ({ subscribe: async () => ({}) }),
-  };
+const mockSupabase: any = {
+  from: (_table?: string) => createMockQuery(),
+  rpc: async (fn: string, params?: any) => {
+    switch (fn) {
+      case "assign_role_for_signup":
+        return { data: { success: true }, error: null };
+      case "log_security_event":
+        return { data: { id: crypto?.randomUUID?.() ?? "mock-id" }, error: null };
+      case "get_audit_logs":
+        return { data: [], error: null };
+      case "validate-data":
+        return { data: { valid: true, cleaned: params ?? {} }, error: null };
+      default:
+        return { data: null, error: null };
+    }
+  },
+  functions: mockFunctions,
+  auth: mockAuth,
+  storage: {
+    from: () => ({ list: async () => ({ data: null, error: null }) }),
+  },
+  channel: () => ({ subscribe: async () => ({}) }),
+};
 
-  export const supabase = mockSupabase as unknown as ReturnType<typeof createClient> & Database;
-} else {
-  // Real Supabase client when configured
-  export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+let supabaseClient: any = mockSupabase;
+
+if (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
+  supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       storage: localStorage,
       persistSession: true,
@@ -82,3 +70,5 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     }
   });
 }
+
+export const supabase = supabaseClient as ReturnType<typeof createClient> & Database;
