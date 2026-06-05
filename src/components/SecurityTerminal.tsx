@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Terminal, X, Minus, Square, Menu, Plus, Search, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { createFileSystem, FSNode } from "./terminal/kaliFileSystem";
+import { createFileSystem, FSNode, loadFilesFromSupabase } from "./terminal/kaliFileSystem";
 import { executeCommand, TerminalState } from "./terminal/kaliCommands";
 import { openEditor, createEditorState, EditorState, EditorType } from "./terminal/editorSimulation";
 import TerminalEditor from "./terminal/TerminalEditor";
@@ -132,6 +132,26 @@ const SecurityTerminal = () => {
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
+
+  // On mount, load persisted files into each tab's in-memory FS (best-effort)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await Promise.all(tabs.map(async (t) => {
+          if (t.state?.fs) {
+            await loadFilesFromSupabase(t.state.fs);
+          }
+        }));
+        if (!mounted) return;
+        // force re-render to pick up any changes to fs
+        setTabs((prev) => prev.map((p) => ({ ...p, state: { ...p.state } })));
+      } catch (e) {
+        console.debug("failed loading files into terminal tabs", e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Global GNOME keyboard shortcuts
   useEffect(() => {
@@ -405,7 +425,7 @@ const SecurityTerminal = () => {
         const parts = result.output[0].split(":");
         const editorType = parts[1] as EditorType;
         const editorArgs = parts.slice(2).join(":").split(" ").filter(Boolean);
-        const newEditor = openEditor(editorType, editorArgs, tab.state);
+        const newEditor = await openEditor(editorType, editorArgs, tab.state);
         if (newEditor) {
           updateActiveTab((t) => ({
             editorState: newEditor,

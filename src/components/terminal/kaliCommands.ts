@@ -1,4 +1,5 @@
-import { FSNode, resolvePath, getNode, getParentAndName, formatSize } from "./kaliFileSystem";
+import { FSNode, resolvePath, getNode, getParentAndName, formatSize, saveFileToSupabase } from "./kaliFileSystem";
+import { supabase } from "@/integrations/supabase/client";
 import { executePythonScript } from "./pythonScripts";
 import {
   handleAptFull as handleAptFullLegacy, cmdSort, cmdSed, cmdAwk, cmdCut, cmdTr, cmdXargs, cmdTee, cmdDiff,
@@ -115,7 +116,7 @@ export const executeCommand = (input: string, state: TerminalState): CmdResult =
     netstat: () => cmdNetstat(args),
     ss: () => cmdSs(),
     curl: () => cmdCurl(args),
-    wget: () => cmdWget(args),
+    wget: () => cmdWget(args, state),
     nmap: () => cmdNmap(args),
     python3: () => cmdPython3(args, state),
     python: () => cmdPython3(args, state),
@@ -380,6 +381,13 @@ function cmdEcho(args: string[], state: TerminalState): CmdResult {
       const { parent, name } = getParentAndName(state.fs, filePath);
       if (parent?.type === "dir" && parent.children) {
         parent.children[name] = { type: "file", content, size: content.length, permissions: "-rw-r--r--", owner: state.user, modified: "Mar 23 " + new Date().toLocaleTimeString().slice(0, 5) };
+        (async () => {
+          try {
+            await saveFileToSupabase(filePath, parent.children[name]);
+          } catch (e) {
+            console.debug("persist echo redirect failed", e);
+          }
+        })();
       }
       return { output: [] };
     }
@@ -403,6 +411,13 @@ function cmdTouch(args: string[], state: TerminalState): CmdResult {
     const { parent, name } = getParentAndName(state.fs, path);
     if (parent?.type === "dir" && parent.children && !parent.children[name]) {
       parent.children[name] = { type: "file", content: "", size: 0, permissions: "-rw-r--r--", owner: state.user, modified: "Mar 23 " + new Date().toLocaleTimeString().slice(0, 5) };
+      (async () => {
+        try {
+          await saveFileToSupabase(path, parent.children[name]);
+        } catch (e) {
+          console.debug("persist touch failed", e);
+        }
+      })();
     }
   }
   return { output: [] };
@@ -414,6 +429,14 @@ function cmdMkdir(args: string[], state: TerminalState): CmdResult {
     const { parent, name } = getParentAndName(state.fs, path);
     if (parent?.type === "dir" && parent.children) {
       parent.children[name] = { type: "dir", children: {} };
+      (async () => {
+        try {
+          // create a marker file for directory in file_store (optional)
+          await saveFileToSupabase(path + "/.dir", { type: "file", content: "", size: 0, permissions: "drwxr-xr-x", owner: state.user, modified: new Date().toISOString() } as FSNode);
+        } catch (e) {
+          console.debug("persist mkdir marker failed", e);
+        }
+      })();
     }
   }
   return { output: [] };
@@ -425,6 +448,13 @@ function cmdRm(args: string[], state: TerminalState): CmdResult {
     const { parent, name } = getParentAndName(state.fs, path);
     if (parent?.type === "dir" && parent.children) {
       delete parent.children[name];
+      (async () => {
+        try {
+          await supabase.from("file_store").delete().eq("path", path);
+        } catch (e) {
+          console.debug("persist rm delete failed", e);
+        }
+      })();
     }
   }
   return { output: [] };

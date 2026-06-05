@@ -540,6 +540,73 @@ export const createFileSystem = (): Record<string, FSNode> => ({
   },
 });
 
+import { supabase } from "@/integrations/supabase/client";
+
+const ensureParentDirs = (fs: Record<string, FSNode>, path: string) => {
+  const parts = path.split("/").filter(Boolean);
+  let current = fs["/"];
+  let builtPath = "";
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    builtPath = builtPath === "" ? `/${p}` : `${builtPath}/${p}`;
+    if (!current.children) current.children = {};
+    if (!current.children[p]) {
+      current.children[p] = { type: "dir", children: {} };
+    }
+    current = current.children[p];
+  }
+};
+
+/**
+ * Load persisted files from Supabase `file_store` and merge into the in-memory fs.
+ * Best-effort: failures do not throw.
+ */
+export const loadFilesFromSupabase = async (fs: Record<string, FSNode>) => {
+  try {
+    const { data, error } = await supabase.from("file_store").select("path,content,permissions,owner,updated_at,size");
+    if (error) {
+      console.debug("loadFilesFromSupabase: supabase error", error);
+      return;
+    }
+    if (!data) return;
+    for (const row of data as any[]) {
+      const path = row.path as string;
+      const parts = path.split("/").filter(Boolean);
+      const name = parts.pop() || "";
+      const parentPath = "/" + parts.join("/");
+      // ensure parent dirs exist
+      ensureParentDirs(fs, path);
+      const parent = getNode(fs, parentPath) as FSNode;
+      if (parent && parent.type === "dir") {
+        if (!parent.children) parent.children = {};
+        parent.children[name] = {
+          type: "file",
+          content: row.content || "",
+          permissions: row.permissions || "-rw-r--r--",
+          owner: row.owner || "kali",
+          size: row.size || (row.content ? row.content.length : 0),
+          modified: row.updated_at || undefined,
+        };
+      }
+    }
+  } catch (e) {
+    console.debug("loadFilesFromSupabase failed", e);
+  }
+};
+
+/**
+ * Persist a single file node to Supabase `file_store`.
+ * Best-effort: failures do not throw.
+ */
+export const saveFileToSupabase = async (path: string, node: FSNode) => {
+  try {
+    if (node.type !== "file") return;
+    await supabase.from("file_store").upsert({ path, content: node.content || "", permissions: node.permissions || null, owner: node.owner || null, size: node.size || (node.content ? node.content.length : null), updated_at: new Date().toISOString() });
+  } catch (e) {
+    console.debug("saveFileToSupabase failed", e);
+  }
+};
+
 export const resolvePath = (cwd: string, target: string): string => {
   if (target.startsWith("/")) {
     return normalizePath(target);

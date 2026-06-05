@@ -5,6 +5,7 @@ import {
   Eye, EyeOff, CheckCircle2, AlertTriangle, Zap,
   ArrowRight, Copy, Hash, ShieldCheck
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EncryptionLog {
   id: string;
@@ -117,11 +118,29 @@ const EncryptionPanel = () => {
   const logRef = useRef<HTMLDivElement>(null);
 
   const addLog = useCallback((log: Omit<EncryptionLog, "id" | "timestamp">) => {
-    setLogs((prev) => [{
+    const entry = {
       ...log,
       id: `ENC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
-    }, ...prev].slice(0, 50));
+    } as EncryptionLog;
+
+    setLogs((prev) => [entry, ...prev].slice(0, 50));
+
+    // Persist lightweight event to Supabase for observability
+    (async () => {
+      try {
+        await supabase.from("encryption_events").insert({
+          event_type: log.type,
+          algorithm: log.algorithm,
+          message: log.message,
+          status: log.status,
+          created_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        // swallow - logging should not break UI
+        console.debug("encryption event persist failed", e);
+      }
+    })();
   }, []);
 
   useEffect(() => {

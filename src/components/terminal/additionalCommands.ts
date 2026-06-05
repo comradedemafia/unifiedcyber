@@ -1,22 +1,32 @@
 // Additional OS-level commands for a more realistic Kali Linux experience
 import { TerminalState } from "./kaliCommands";
-import { resolvePath, getNode, getParentAndName, formatSize, listDirRecursive } from "./kaliFileSystem";
+import { resolvePath, getNode, getParentAndName, formatSize, listDirRecursive, saveFileToSupabase } from "./kaliFileSystem";
+import { supabase } from "@/integrations/supabase/client";
 
 type CmdResult = { output: string[]; newState?: Partial<TerminalState> };
 
-// Installed packages tracker (simulates apt install)
+// Installed packages tracker — backed by Supabase `installed_packages` table.
 const installedPackages = new Set<string>([
   "nmap", "python3", "git", "curl", "wget", "ssh", "bash", "ls", "cat", "grep", "find",
-  "msfconsole", "metasploit-framework", "hydra", "sqlmap", "wireshark", "tcpdump",
-  "aircrack-ng", "nikto", "gobuster", "john", "hashcat", "burpsuite", "dirb",
-  "netcat", "nc", "ncat", "vim", "nano", "tar", "gzip", "zip", "unzip",
-  "iptables", "ufw", "systemctl", "cron", "apache2", "nginx", "openssh-server",
-  "python3-pip", "gcc", "make", "ruby", "perl", "php", "nodejs", "npm",
-  "wfuzz", "enum4linux", "smbclient", "rpcclient", "crackmapexec", "responder",
-  "impacket-scripts", "bloodhound", "wpscan", "subfinder", "amass", "ffuf",
-  "binwalk", "foremost", "volatility3", "autopsy", "sleuthkit",
-  "tor", "proxychains4", "socat", "chisel", "ligolo-ng",
 ]);
+
+let installedPackagesLoaded = false;
+
+const loadInstalledPackages = async () => {
+  try {
+    const { data, error } = await supabase.from("installed_packages").select("name");
+    if (!error && data) {
+      data.forEach((r: any) => installedPackages.add(r.name));
+    }
+  } catch (e) {
+    // ignore
+  } finally {
+    installedPackagesLoaded = true;
+  }
+};
+
+// start loading in background
+loadInstalledPackages();
 
 export const handleAptInstall = (args: string[], state: TerminalState): CmdResult => {
   const pkg = args.find(a => !a.startsWith("-"));
@@ -32,6 +42,14 @@ export const handleAptInstall = (args: string[], state: TerminalState): CmdResul
   }
 
   installedPackages.add(pkg);
+  // persist to Supabase asynchronously
+  (async () => {
+    try {
+      await supabase.from("installed_packages").insert({ name: pkg, installed_at: new Date().toISOString() });
+    } catch (e) {
+      console.debug("failed to persist installed package", e);
+    }
+  })();
   const size = (Math.random() * 50 + 5).toFixed(1);
   return { output: [
     `Reading package lists... Done`,
@@ -177,6 +195,13 @@ export const cmdTee = (args: string[], state: TerminalState): CmdResult => {
     const { parent, name } = getParentAndName(state.fs, path);
     if (parent?.type === "dir" && parent.children) {
       parent.children[name] = { type: "file", content: "[tee output]", size: 12, permissions: "-rw-r--r--", owner: state.user, modified: "Mar 23 " + new Date().toLocaleTimeString().slice(0, 5) };
+      (async () => {
+        try {
+          await saveFileToSupabase(path, parent.children[name]);
+        } catch (e) {
+          console.debug("persist tee output failed", e);
+        }
+      })();
     }
   }
   return { output: [] };
@@ -275,6 +300,13 @@ export const cmdCp = (args: string[], state: TerminalState): CmdResult => {
   const { parent, name } = getParentAndName(state.fs, destPath);
   if (parent?.type === "dir" && parent.children && srcNode.type === "file") {
     parent.children[name] = { ...srcNode };
+    (async () => {
+      try {
+        await saveFileToSupabase(destPath, parent.children[name]);
+      } catch (e) {
+        console.debug("persist cp failed", e);
+      }
+    })();
   }
   return { output: [] };
 };
@@ -290,20 +322,56 @@ export const cmdMv = (args: string[], state: TerminalState): CmdResult => {
   const { parent: destParent, name: destName } = getParentAndName(state.fs, destPath);
   if (destParent?.type === "dir" && destParent.children) {
     destParent.children[destName] = { ...srcNode };
+    (async () => {
+      try {
+        await saveFileToSupabase(destPath, destParent.children[destName]);
+      } catch (e) {
+        console.debug("persist mv dest failed", e);
+      }
+    })();
   }
   // Remove from source
   const { parent: srcParent, name: srcName } = getParentAndName(state.fs, srcPath);
   if (srcParent?.type === "dir" && srcParent.children) {
     delete srcParent.children[srcName];
+    (async () => {
+      try {
+        await supabase.from("file_store").delete().eq("path", srcPath);
+      } catch (e) {
+        console.debug("persist mv src delete failed", e);
+      }
+    })();
   }
   return { output: [] };
 };
 
-export const cmdWget = (args: string[]): CmdResult => {
+export const cmdWget = (args: string[], state?: TerminalState): CmdResult => {
   const url = args.find(a => !a.startsWith("-")) || "";
   if (!url) return { output: ["wget: missing URL"] };
   const filename = url.split("/").pop() || "index.html";
   const size = (Math.random() * 10 + 1).toFixed(1);
+
+  // If we have state, create file in current cwd and persist
+  if (state) {
+    try {
+      const path = resolvePath(state.cwd, filename);
+      const { parent, name } = getParentAndName(state.fs, path);
+      if (parent?.type === "dir" && parent.children) {
+        const content = `<html><head><title>${filename}</title></head><body>OK</body></html>`;
+        parent.children[name] = { type: "file", content, size: content.length, permissions: "-rw-r--r--", owner: state.user, modified: new Date().toISOString() };
+        (async () => {
+          try {
+            await saveFileToSupabase(path, parent.children[name]);
+          } catch (e) {
+            console.debug("persist wget failed", e);
+          }
+        })();
+      }
+    } catch (e) {
+      console.debug("cmdWget persist error", e);
+    }
+  }
+
   return { output: [
     `--${new Date().toISOString()}--  ${url}`,
     `Resolving ${new URL("http://" + url.replace(/^https?:\/\//, "")).hostname || url}... ${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,

@@ -1,6 +1,7 @@
 // Vim and Nano editor simulation for the Kali Linux terminal
-import { FSNode, resolvePath, getNode, getParentAndName } from "./kaliFileSystem";
+import { FSNode, resolvePath, getNode, getParentAndName, saveFileToSupabase } from "./kaliFileSystem";
 import { TerminalState } from "./kaliCommands";
+import { supabase } from "@/integrations/supabase/client";
 
 export type EditorType = "vim" | "nano";
 export type VimMode = "normal" | "insert" | "command" | "visual";
@@ -37,11 +38,11 @@ export const createEditorState = (): EditorState => ({
   isNewFile: false,
 });
 
-export const openEditor = (
+export const openEditor = async (
   type: EditorType,
   args: string[],
   termState: TerminalState
-): EditorState | null => {
+): Promise<EditorState | null> => {
   const fileName = args.find(a => !a.startsWith("-") && !a.startsWith("+"));
   if (!fileName) {
     // Open empty buffer
@@ -69,9 +70,23 @@ export const openEditor = (
     return null; // Can't edit directories
   }
 
-  const content = node?.type === "file" ? (node.content || "") : "";
+  let content = node?.type === "file" ? (node.content || "") : "";
+  let isNew = !node;
+
+  // If file not present in in-memory fs, try to load from Supabase 'terminal_files'
+  if (!content) {
+    try {
+      const { data, error } = await supabase.from("terminal_files").select("content").eq("path", path).maybeSingle();
+      if (!error && data && (data as any).content) {
+        content = (data as any).content || "";
+        isNew = false;
+      }
+    } catch (e) {
+      console.debug("openEditor: failed to load from supabase", e);
+    }
+  }
+
   const fileLines = content ? content.split("\n") : [""];
-  const isNew = !node;
 
   return {
     active: true,
@@ -111,6 +126,25 @@ export const saveEditorFile = (
       modified: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" }) + " " + new Date().toLocaleTimeString().slice(0, 5),
     };
   }
+
+  // Persist file content to Supabase for the terminal workspace (best-effort)
+  (async () => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase.from("terminal_files").upsert({ path, content, owner: termState.user, updated_at: new Date().toISOString() });
+      try {
+        const { parent: p, name: n } = getParentAndName(newFs, path);
+        if (p && p.type === "dir" && p.children && p.children[n]) {
+          await saveFileToSupabase(path, p.children[n]);
+        }
+      } catch (e) {
+        console.debug("saveFileToSupabase from editor failed", e);
+      }
+    } catch (e) {
+      // ignore persistence errors — UI should not break
+      console.debug("terminal file persist failed", e);
+    }
+  })();
 
   return {
     newFs,

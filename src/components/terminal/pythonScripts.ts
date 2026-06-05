@@ -1,6 +1,7 @@
 // Python3 script execution simulation with realistic outputs
 import { TerminalState } from "./kaliCommands";
 import { resolvePath, getNode } from "./kaliFileSystem";
+import { supabase } from "@/integrations/supabase/client";
 
 export const executePythonScript = (scriptName: string, args: string[], state: TerminalState): string[] => {
   // Port Scanner
@@ -49,6 +50,15 @@ export const executePythonScript = (scriptName: string, args: string[], state: T
       `[*] Scan duration: ${(Math.random() * 20 + 10).toFixed(2)}s`,
     ];
   }
+
+  // persist script run (best-effort)
+  (async () => {
+    try {
+      await supabase.from("script_runs").insert({ script: scriptName, args: JSON.stringify(args), output: JSON.stringify(output), created_at: new Date().toISOString() });
+    } catch (e) {
+      console.debug("script run persist failed", e);
+    }
+  })();
 
   // Packet Sniffer
   if (scriptName.includes("packet_sniffer") || scriptName.includes("sniffer")) {
