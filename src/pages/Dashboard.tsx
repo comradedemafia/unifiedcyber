@@ -34,6 +34,8 @@ import SecurityReports from "@/components/SecurityReports";
 import AttackSimulationPanel from "@/components/AttackSimulationPanel";
 import TerminalAuditLogViewer from "@/components/TerminalAuditLogViewer";
 import RoleBadge from "@/components/RoleBadge";
+import PageHead from "@/components/PageHead";
+
 import IntegrationManager from "@/components/IntegrationManager";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -264,68 +266,35 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 bg-card/60 backdrop-blur-xl sticky top-0 z-40">
-        <div className="container mx-auto px-6 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Brand */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-xl bg-primary/30 blur-lg" aria-hidden />
-              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/5 border border-primary/30 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-primary" />
-              </div>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-mono uppercase tracking-[0.32em] text-muted-foreground/70 leading-none">
-                Unified Cyber Security
-              </p>
-              <h1 className="text-base font-semibold text-foreground leading-tight truncate">
-                Operations Dashboard
-              </h1>
-            </div>
-            <span className="hidden md:inline-flex items-center gap-1.5 ml-2 px-2 py-1 rounded-full bg-success/10 border border-success/20 text-[10px] font-mono text-success">
-              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> LIVE
-            </span>
+      <PageHead
+        title="Operations Dashboard — UCSF"
+        description="Live SOC overview: threats blocked, active incidents, system health, and admin actions."
+        path="/dashboard"
+      />
+
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-40">
+        <div className="container mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-primary" />
+            <span className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">UCSF Dashboard</span>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap justify-end">
-            {/* Identity chip */}
-            <div className="hidden sm:flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-background/60 border border-border/60">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center text-[10px] font-semibold text-primary-foreground">
-                {(user?.email?.[0] ?? "U").toUpperCase()}
-              </div>
-              <span className="text-xs font-mono text-foreground/80 max-w-[160px] truncate">{user?.email}</span>
-              <RoleBadge />
-            </div>
-
-            {/* Quick nav group */}
-            <div className="flex items-center rounded-full border border-border/60 bg-background/60 overflow-hidden">
-              <Button variant="ghost" size="sm" onClick={() => navigate("/siem")} className="h-8 rounded-none text-xs font-mono gap-1.5 px-3 hover:bg-primary/10 hover:text-primary">
-                <Eye className="w-3.5 h-3.5" /> SIEM
-              </Button>
-              <span className="w-px h-5 bg-border/60" />
-              <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="h-8 rounded-none text-xs font-mono gap-1.5 px-3 hover:bg-primary/10 hover:text-primary">
-                <Globe className="w-3.5 h-3.5" /> Home
-              </Button>
-            </div>
-
-            {/* Utility cluster */}
-            <div className="flex items-center gap-1 pl-1">
-              <NotificationPanel />
-              <ThemeToggle />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="h-8 px-3 text-xs font-mono gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <LogOut className="w-3.5 h-3.5" /> Logout
-              </Button>
-            </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationPanel />
+            <span className="text-xs text-muted-foreground font-mono hidden sm:block">{user?.email}</span>
+            <RoleBadge />
+            <Button variant="ghost" size="sm" onClick={() => navigate("/siem")} className="text-xs font-mono gap-1">
+              <Eye className="w-3 h-3" /> SIEM
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs font-mono gap-1">
+              <Globe className="w-3 h-3" /> Home
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-xs font-mono gap-1 text-destructive">
+              <LogOut className="w-3 h-3" /> Logout
+            </Button>
           </div>
         </div>
       </header>
-
 
       <main className="container mx-auto px-6 py-8">
         <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -346,9 +315,11 @@ const Dashboard = () => {
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((open) => !open)}
+                  aria-label={sidebarOpen ? "Collapse sidebar" : "Toggle sidebar"}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/50 bg-background/80 text-muted-foreground transition hover:border-primary hover:text-primary"
                 >
                   {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+
                 </button>
               </div>
               <nav className="space-y-2">

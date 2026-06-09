@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
 import { installGlobalErrorReporter } from "./utils/globalErrorReporter";
@@ -8,6 +9,8 @@ installGlobalErrorReporter();
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <App />
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
   </ErrorBoundary>
 );

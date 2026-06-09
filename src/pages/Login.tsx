@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity, recordFailedLoginAttempt } from "@/utils/security";
 import { useAuditLogging } from "@/hooks/useAuditLogging";
+import PageHead from "@/components/PageHead";
+
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -141,6 +143,12 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <PageHead
+        title="Sign in — Unified Cyber Security Framework"
+        description="Authenticate to access the RUCU SOC dashboard, SIEM, and security terminal."
+        path="/login"
+      />
+
       <div className="absolute inset-0 bg-grid opacity-30" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
@@ -168,7 +176,7 @@ const Login = () => {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-mono uppercase tracking-[0.3em] text-primary/80 mb-1">Secure access portal</p>
-                <h2 className="text-lg font-semibold text-foreground">Login or register to continue</h2>
+                <h1 className="text-lg font-semibold text-foreground">Sign in to Cyber Command</h1>
               </div>
               <div className="rounded-2xl bg-primary/10 px-3 py-2 text-[11px] font-mono uppercase text-primary">AI powered</div>
             </div>
@@ -276,10 +284,13 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+
               </div>
             </div>
 

@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import IntrusionDetection from "@/components/IntrusionDetection";
 import RealtimeDiagnostics from "@/components/RealtimeDiagnostics";
+import PageHead from "@/components/PageHead";
+
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
@@ -125,6 +127,12 @@ const SIEM = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <PageHead
+        title="SIEM Console — UCSF"
+        description="Unified events timeline, GeoIP threat map, and spatial attack visualization across system, web, and network layers."
+        path="/siem"
+      />
+
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
