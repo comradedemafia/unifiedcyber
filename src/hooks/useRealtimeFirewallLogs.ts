@@ -31,18 +31,19 @@ export const useRealtimeFirewallLogs = (limit = 50) => {
         .limit(limit);
 
       if (error) console.error("Error fetching firewall logs:", error);
-      else setLogs(data || []);
+      else setLogs((data as any) || []);
       setLoading(false);
     };
 
     fetchInitialLogs();
 
     const channel = supabase.channel('firewall-logs-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'firewall_logs' }, (payload) => {
+      .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'firewall_logs' }, (payload: any) => {
         setLogs((current) => [payload.new as FirewallLog, ...current].slice(0, limit));
       }).subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => { void supabase.removeChannel(channel); };
+
   }, [limit]);
 
   return { logs, loading };

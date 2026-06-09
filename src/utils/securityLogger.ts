@@ -21,17 +21,20 @@ export const logSecurityEvent = async (event: SecurityEvent) => {
   const { data, error } = await supabase
     .from('security_incidents')
     .insert([{
-      type: event.type,
+      incident_type: event.type,
       severity: event.severity,
       source_ip: event.source_ip,
       description: event.description,
-      location_lat: event.location?.lat,
-      location_lng: event.location?.lng,
-      city: event.location?.city,
-      country: event.location?.country,
-      timestamp: new Date().toISOString(),
-      status: 'active'
-    }]);
+      status: 'active',
+      response_actions: {
+        location_lat: event.location?.lat,
+        location_lng: event.location?.lng,
+        city: event.location?.city,
+        country: event.location?.country,
+        timestamp: new Date().toISOString(),
+      } as any,
+    } as any]);
+
 
   if (error) {
     console.error("Error logging security event:", error);
