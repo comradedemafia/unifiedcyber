@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 import IntrusionDetection from "@/components/IntrusionDetection";
 import RealtimeDiagnostics from "@/components/RealtimeDiagnostics";
+import PageHead from "@/components/PageHead";
+
 
 const SIEM = () => {
   const { user, signOut } = useAuth();
