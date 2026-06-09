@@ -141,8 +141,10 @@ const TerminalAuditLogViewer = () => {
   }, [rows]);
 
   const exportData = async (format: "csv" | "json") => {
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
     const searchTerm = search.trim();
     const reasonTerm = validationReasonFilter.trim().toLowerCase();
+
 
     let q: any = (supabase.from("terminal_audit_log" as never) as any)
       .select("*")
