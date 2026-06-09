@@ -59,7 +59,3 @@ const InputOTPSeparator = React.forwardRef<React.ElementRef<"div">, React.Compon
 InputOTPSeparator.displayName = "InputOTPSeparator";
 
 export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };
-
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('YOUR_USER_ID_HERE', 'admin')
-ON CONFLICT (user_id, role) DO NOTHING;
