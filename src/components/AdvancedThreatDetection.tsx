@@ -16,14 +16,18 @@ interface ThreatAlert {
   id: string;
   alert_type: string;
   type?: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: 'low' | 'medium' | 'high' | 'critical' | string;
   source_ip?: string;
+  source?: string;
   message: string;
+  description?: string;
+  timestamp?: string;
   created_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, any> | unknown;
   status?: string;
   actionTaken?: string;
 }
+
 
 interface AnomalyScore {
   timestamp: string;
@@ -55,7 +59,7 @@ const AdvancedThreatDetection = () => {
         return;
       }
 
-      setThreatAlerts(data || []);
+      setThreatAlerts((data as any) || []);
     } catch (err) {
       console.error('Error loading threats:', err);
     } finally {
