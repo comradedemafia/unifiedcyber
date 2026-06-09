@@ -34,6 +34,8 @@ import SecurityReports from "@/components/SecurityReports";
 import AttackSimulationPanel from "@/components/AttackSimulationPanel";
 import TerminalAuditLogViewer from "@/components/TerminalAuditLogViewer";
 import RoleBadge from "@/components/RoleBadge";
+import PageHead from "@/components/PageHead";
+
 import IntegrationManager from "@/components/IntegrationManager";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -264,6 +266,12 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <PageHead
+        title="Operations Dashboard — UCSF"
+        description="Live SOC overview: threats blocked, active incidents, system health, and admin actions."
+        path="/dashboard"
+      />
+
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
