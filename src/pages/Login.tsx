@@ -168,7 +168,7 @@ const Login = () => {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-mono uppercase tracking-[0.3em] text-primary/80 mb-1">Secure access portal</p>
-                <h2 className="text-lg font-semibold text-foreground">Login or register to continue</h2>
+                <h1 className="text-lg font-semibold text-foreground">Sign in to Cyber Command</h1>
               </div>
               <div className="rounded-2xl bg-primary/10 px-3 py-2 text-[11px] font-mono uppercase text-primary">AI powered</div>
             </div>
@@ -276,10 +276,13 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+
               </div>
             </div>
 

@@ -194,9 +194,10 @@ const SecurityLayers = () => {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-lg rounded-xl border border-primary/20 bg-card p-6 shadow-2xl box-glow relative"
             >
-              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={() => setSelected(null)} aria-label="Close" className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </button>
+
 
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 rounded-lg bg-primary/10 text-primary border border-primary/15">

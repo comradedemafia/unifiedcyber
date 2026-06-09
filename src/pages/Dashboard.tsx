@@ -307,9 +307,11 @@ const Dashboard = () => {
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((open) => !open)}
+                  aria-label={sidebarOpen ? "Collapse sidebar" : "Toggle sidebar"}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/50 bg-background/80 text-muted-foreground transition hover:border-primary hover:text-primary"
                 >
                   {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+
                 </button>
               </div>
               <nav className="space-y-2">

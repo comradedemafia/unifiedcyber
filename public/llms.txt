@@ -1,0 +1,14 @@
+# Unified Cyber Security Framework — RUCU
+
+> An integrated Security Operations Center (SOC) platform from Ruaha Catholic University's Faculty of ICT. Combines system, web, and network defense layers into one real-time threat-detection, response, and reporting workspace.
+
+The platform unifies host-based monitoring (Wazuh), web application firewalling (ModSecurity), and network intrusion detection (Suricata) under a single SIEM dashboard. It includes a Kali-inspired security terminal, automated incident response playbooks, GeoIP threat mapping, vulnerability scanning, and encrypted reporting.
+
+## Pages
+
+- [Home](/): Overview of the Unified Cyber Security Framework — architecture, live threat feed, and capability summary.
+- [Sign in](/login): Authentication entry point for analysts and administrators.
+
+## Optional
+
+- [Project domain](https://unified-cyber-guard.lovable.app/): Published deployment of the framework.
