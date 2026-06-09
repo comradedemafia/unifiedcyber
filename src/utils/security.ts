@@ -80,7 +80,7 @@ export const rateLimit = (key: string, maxAttempts: number = 5, windowMs: number
 export const logSecurityEvent = async (event: string, details?: any) => {
   try {
     const ipAddress = await getClientIp();
-    const { error } = await supabase.rpc("log_security_event", {
+    const { error } = await (supabase.rpc as any)("log_security_event", {
       p_event_type: event,
       p_action: details?.action || event,
       p_resource_type: details?.resource_type || "system",
