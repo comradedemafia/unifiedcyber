@@ -71,4 +71,6 @@ if (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
   });
 }
 
-export const supabase = supabaseClient as ReturnType<typeof createClient> & Database;
+import type { SupabaseClient } from '@supabase/supabase-js';
+export const supabase = supabaseClient as SupabaseClient<Database>;
+
