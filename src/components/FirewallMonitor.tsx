@@ -64,10 +64,11 @@ const generateTrafficAndLog = async () => {
     protocol: p.protocol,
     action: isMalicious ? "blocked" : "allowed",
     reason: p.reason,
-    type: isMalicious ? p.threat : null,
+    type: isMalicious ? (p as any).threat : null,
     severity: isMalicious ? "high" : "low",
     bytes_transferred: Math.floor(Math.random() * 5000) + 64,
-    description: isMalicious ? `Firewall blocked ${p.threat} from ${srcIP} to ${dstIP}:${p.port}.` : p.reason
+    description: isMalicious ? `Firewall blocked ${(p as any).threat} from ${srcIP} to ${dstIP}:${p.port}.` : p.reason
+
   };
 
   try {
