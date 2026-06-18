@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://unified-cyber-guard.lovable.app/sitemap.xml
