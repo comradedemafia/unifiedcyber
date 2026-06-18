@@ -34,8 +34,6 @@ import SecurityReports from "@/components/SecurityReports";
 import AttackSimulationPanel from "@/components/AttackSimulationPanel";
 import TerminalAuditLogViewer from "@/components/TerminalAuditLogViewer";
 import RoleBadge from "@/components/RoleBadge";
-import PageHead from "@/components/PageHead";
-
 import IntegrationManager from "@/components/IntegrationManager";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -266,31 +264,47 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHead
-        title="Operations Dashboard — UCSF"
-        description="Live SOC overview: threats blocked, active incidents, system health, and admin actions."
-        path="/dashboard"
-      />
-
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-40">
-        <div className="container mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-primary" />
-            <span className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase">UCSF Dashboard</span>
+        <div className="container mx-auto px-3 sm:px-4 lg:px-6 min-h-14 py-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Shield className="w-5 h-5 text-primary shrink-0" />
+            <span className="font-mono text-[10px] sm:text-xs tracking-[0.2em] text-muted-foreground uppercase truncate">
+              UCSF Dashboard
+            </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             <ThemeToggle />
             <NotificationPanel />
-            <span className="text-xs text-muted-foreground font-mono hidden sm:block">{user?.email}</span>
+            <span className="hidden md:inline text-xs text-muted-foreground font-mono max-w-[180px] truncate">
+              {user?.email}
+            </span>
             <RoleBadge />
-            <Button variant="ghost" size="sm" onClick={() => navigate("/siem")} className="text-xs font-mono gap-1">
-              <Eye className="w-3 h-3" /> SIEM
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/siem")}
+              className="h-8 px-2 sm:px-3 text-xs font-mono gap-1"
+              aria-label="Open SIEM"
+            >
+              <Eye className="w-3 h-3" /> <span className="hidden sm:inline">SIEM</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs font-mono gap-1">
-              <Globe className="w-3 h-3" /> Home
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/")}
+              className="h-8 px-2 sm:px-3 text-xs font-mono gap-1"
+              aria-label="Go home"
+            >
+              <Globe className="w-3 h-3" /> <span className="hidden sm:inline">Home</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-xs font-mono gap-1 text-destructive">
-              <LogOut className="w-3 h-3" /> Logout
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="h-8 px-2 sm:px-3 text-xs font-mono gap-1 text-destructive"
+              aria-label="Logout"
+            >
+              <LogOut className="w-3 h-3" /> <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
         </div>
@@ -315,11 +329,9 @@ const Dashboard = () => {
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((open) => !open)}
-                  aria-label={sidebarOpen ? "Collapse sidebar" : "Toggle sidebar"}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/50 bg-background/80 text-muted-foreground transition hover:border-primary hover:text-primary"
                 >
                   {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-
                 </button>
               </div>
               <nav className="space-y-2">

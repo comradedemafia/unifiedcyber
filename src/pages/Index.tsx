@@ -4,19 +4,12 @@ import StatsBar from "@/components/StatsBar";
 import SecurityLayers from "@/components/SecurityLayers";
 import ArchitectureDiagram from "@/components/ArchitectureDiagram";
 import { Shield, AlertTriangle, Activity, Monitor, FileText, Terminal, Clock } from "lucide-react";
-import PageHead from "@/components/PageHead";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background scroll-smooth">
-      <PageHead
-        title="Unified Cyber Security Framework — RUCU"
-        description="Real-time SOC platform integrating system, web, and network defense — built by RUCU's Faculty of ICT."
-        path="/"
-      />
       <Navbar />
       <HeroSection />
-
       <section className="container mx-auto px-6 py-16 text-center">
         <div className="mx-auto max-w-3xl">
           <p className="text-sm font-mono uppercase tracking-[0.3em] text-primary/80 mb-4">Welcome to the AI cyber command center</p>

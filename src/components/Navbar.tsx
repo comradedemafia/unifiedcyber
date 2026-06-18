@@ -45,10 +45,8 @@ const Navbar = () => {
       <div className="container mx-auto px-6 flex items-center justify-between h-16">
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="UCSF home — scroll to top"
           className="flex items-center gap-2.5 group"
         >
-
           <div className="relative">
             <Shield className="w-6 h-6 text-primary transition-all group-hover:drop-shadow-[0_0_8px_hsl(170_100%_45%/0.5)]" />
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
