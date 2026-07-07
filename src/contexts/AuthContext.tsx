@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSecurityEvent } from "@/utils/security";
 import { logAuthEvent } from "@/utils/api-validation";
+import { getAppBaseUrl } from "@/utils/appUrl";
 
 interface AuthContextType {
   user: User | null;
@@ -132,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }, {
         options: {
           data: { display_name: displayName, preferred_role: role },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: getAppBaseUrl(),
         },
       });
 
@@ -165,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: getAppBaseUrl() },
       });
       if (!error) {
         touchSecurityActivity();

@@ -14,7 +14,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "terminal:server": "node server/terminal-server.js"
+    "terminal:server": "node server/terminal-server.js",
+    "docker:build": "docker build -t all-see-guard:latest .",
+    "docker:local": "docker run --rm -p 8080:80 all-see-guard:latest"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

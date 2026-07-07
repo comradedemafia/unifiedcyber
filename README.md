@@ -64,10 +64,29 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
-## Can I connect a custom domain to my Lovable project?
+## Can I connect a custom domain to my project?
 
-Yes, you can!
+Yes. For this app, set the production URL in your hosting platform and add the same value to the environment variable VITE_APP_URL.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Example:
+- VITE_APP_URL=https://yourdomain.com
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Then configure your DNS records so your domain points to the deployment provider and add the domain in the provider's custom-domain settings.
+
+### Publish Docker image to GitHub Container Registry
+
+This repository includes a GitHub Actions workflow that builds and publishes a Docker image to GitHub Container Registry on pushes to `main`.
+
+Steps to enable:
+
+- Ensure `packages: write` permission is enabled for `GITHUB_TOKEN` (default in new repos).
+- Push to `main` and watch the Actions run or trigger it manually.
+- Image will be available as `ghcr.io/<OWNER>/all-see-guard:latest`.
+
+You can also build locally:
+
+```bash
+npm run docker:build
+npm run docker:local
+```
+
