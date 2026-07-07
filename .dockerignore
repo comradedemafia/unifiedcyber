@@ -3,7 +3,6 @@ dist
 .git
 .env
 .env.*
-docker
 node_modules
 npm-debug.log
 *.tgz
