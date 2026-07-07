@@ -495,7 +495,7 @@ const IncidentResponse = () => {
                     {localProcessingIncidents.map(inc => { // Display local processing incidents
                       const pc = phaseConfig[inc.phase]; const Icon = pc.icon;
                       return (
-                        <motion.div key={inc.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} onClick={() => setActiveIncidentId(inc.id)}
+                        <motion.div key={inc.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} onClick={() => setActiveIncident(inc)}
                           className={`px-4 py-3 border-b border-border/20 cursor-pointer hover:bg-card/60 transition-all ${activeIncident?.id === inc.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <Icon className={`w-3.5 h-3.5 ${pc.color}`} />

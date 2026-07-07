@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Globe, MapPin, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useRealtimeIncidents, Incident } from "@/hooks/useRealtimeIncidents"; // Import Incident type
+import { useRealtimeIncidents } from "@/hooks/useRealtimeIncidents";
+type Incident = any;
+
 
 interface ThreatPoint {
   ip: string;

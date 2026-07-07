@@ -130,7 +130,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-      }, {
         options: {
           data: { display_name: displayName, preferred_role: role },
           emailRedirectTo: getAppBaseUrl(),
@@ -144,7 +143,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (data?.user?.id) {
           // Use secure RPC to assign allowed signup roles (prevents client from assigning admin)
-          const { error: roleError } = await supabase.rpc("assign_role_for_signup", { _user_id: data.user.id, _role: role });
+          const { error: roleError } = await (supabase.rpc as any)("assign_role_for_signup", { _user_id: data.user.id, _role: role });
+
           if (roleError) {
             console.warn("Role assignment failed during signup via RPC:", roleError.message);
             logSecurityEvent("role_assignment_failed", { email, role, error: roleError.message });

@@ -65,7 +65,7 @@ export const logAuditEvent = async (entry: AuditLogEntry): Promise<boolean> => {
     // Get client IP if not provided (client-side detection)
     const ipAddress = entry.ip_address || await getClientIp();
 
-    const { error } = await supabase.from("security_logs").insert({
+    const { error } = await (supabase.from as any)("security_logs").insert({
       user_id: entry.user_id,
       event_type: entry.event_type,
       action: entry.action,
@@ -77,7 +77,8 @@ export const logAuditEvent = async (entry: AuditLogEntry): Promise<boolean> => {
       ip_address: ipAddress,
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
       source_system: 'web-client',
-    });
+    } as any);
+
 
     if (error) {
       console.error("Failed to log audit event:", error);
