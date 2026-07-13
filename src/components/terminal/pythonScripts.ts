@@ -3,7 +3,7 @@ import { TerminalState } from "./kaliCommands";
 import { resolvePath, getNode } from "./kaliFileSystem";
 import { supabase } from "@/integrations/supabase/client";
 
-export const executePythonScript = (scriptName: string, args: string[], state: TerminalState): string[] => {
+const generatePythonScriptOutput = (scriptName: string, args: string[], state: TerminalState): string[] => {
   // Port Scanner
   if (scriptName.includes("port_scanner")) {
     const target = getArgValue(args, "--target") || getArgValue(args, "-t") || "192.168.1.0/24";
@@ -50,15 +50,6 @@ export const executePythonScript = (scriptName: string, args: string[], state: T
       `[*] Scan duration: ${(Math.random() * 20 + 10).toFixed(2)}s`,
     ];
   }
-
-  // persist script run (best-effort)
-  (async () => {
-    try {
-      await supabase.from("script_runs").insert({ script: scriptName, args: JSON.stringify(args), output: JSON.stringify(output), created_at: new Date().toISOString() });
-    } catch (e) {
-      console.debug("script run persist failed", e);
-    }
-  })();
 
   // Packet Sniffer
   if (scriptName.includes("packet_sniffer") || scriptName.includes("sniffer")) {
@@ -392,6 +383,23 @@ export const executePythonScript = (scriptName: string, args: string[], state: T
 
   // Generic script execution
   return [`[*] Executing ${scriptName}...`, `[✓] Script completed successfully.`];
+};
+
+export const executePythonScript = (scriptName: string, args: string[], state: TerminalState): string[] => {
+  const output = generatePythonScriptOutput(scriptName, args, state);
+  (async () => {
+    try {
+      await supabase.from("script_runs").insert({
+        script: scriptName,
+        args: JSON.stringify(args),
+        output: JSON.stringify(output),
+        created_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.debug("script run persist failed", e);
+    }
+  })();
+  return output;
 };
 
 function getArgValue(args: string[], flag: string): string | undefined {

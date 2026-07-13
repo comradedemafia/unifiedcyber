@@ -1,123 +1,71 @@
+# Deployment Readiness Plan — Self-Hosted Docker
 
+## Current snapshot
+- TypeScript type check: **passed** (`npx tsc --noEmit` exit 0).
+- Dependency audit: **clean** (no high/critical vulnerabilities).
+- Security scan: **no critical findings**.
+- Lighthouse/accessibility: previously flagged as low, but that was from the Lovable-hosted preview; self-hosting will be re-evaluated after the production build is live.
 
-# Plan to Complete the Cyber Defense System
+## Blockers that must be fixed first
+1. **Destructive Supabase migration** — `supabase/migrations/20260530030820_my_schema.sql` drops every public table, type, function and trigger and does not recreate them. Deploying this would wipe the production database.
+2. **Missing `GRANT` statements** — every public table created in earlier migrations lacks the Data-API grants that Supabase now requires. Without them the frontend will hit permission errors.
+3. **ESLint hard error** — `src/lib/integrations.ts:78` has an empty `catch {}` block (`no-empty`), which causes `npm run lint` to fail.
+4. **Placeholder environment values** — `.env` still has `VITE_APP_URL=https://yourdomain.com` and `VITE_TERMINAL_WS_URL=ws://localhost:4000/terminal`.
+5. **Terminal server is not containerized** — the Dockerfile only builds the React app; the real-time terminal WebSocket service (`server/terminal-server.js`) needs its own runtime environment on the server.
+6. **No reverse-proxy / SSL orchestration** — for a real domain you need nginx/Caddy/Traefik with TLS termination and WebSocket upgrade support.
 
-The system is now moving towards real-time data reading. We have started removing the use of `localStorage` for logs and security settings to fully utilize Supabase.
+## Implementation steps
 
----
+### 1. Fix the database migrations
+- Remove or replace `supabase/migrations/20260530030820_my_schema.sql` so it cannot run in production.
+- Add the required `GRANT` blocks immediately after each `CREATE TABLE` in:
+  - `20260404084009_caca9acd-de16-4db6-b527-91d8398bde21.sql` (profiles, security_incidents, firewall_logs, threat_alerts, blocked_ips)
+  - `20260414_enhanced_security_audit.sql` (security_logs)
+  - `20260504123259_4c17cee4-21be-41a7-9e57-7dfda59702d1.sql` (user_roles)
+  - `20260505141905_0da77eb4-9d33-436a-bb75-6c926c65bdeb.sql` (terminal_audit_log)
+- Pattern for each table:
+  ```sql
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO authenticated;
+  GRANT ALL ON public.<table> TO service_role;
+  ```
+  (Drop the `authenticated` INSERT/UPDATE/DELETE grants where the RLS policy intentionally restricts writes.)
 
-## Step 1: Admin Authentication & Defense Dashboard
+### 2. Fix the lint error
+- In `src/lib/integrations.ts:78`, replace the empty `catch {}` with a comment body or an `eslint-disable-next-line no-empty` so `npm run lint` exits cleanly.
 
-Adding a login system for the admin so that notifications and security data are protected.
+### 3. Configure production environment
+- Replace placeholder values in `.env` (and create `.env.example` if missing):
+  ```env
+  VITE_APP_URL=https://<your-domain>
+  VITE_TERMINAL_WS_URL=wss://<your-domain>/terminal
+  ```
+- Ensure the terminal server receives `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `TERMINAL_PORT`, `TERMINAL_SHELL`, `TERMINAL_ALLOWED_ROLES` at runtime.
 
-- Create a login/signup page for the admin
-- Dashboard page with a summary of the system status (summary stats) — total threats blocked, active incidents, system health
-- Protected routes — the dashboard is not visible without login
+### 4. Containerize the terminal server
+- Add a `Dockerfile.terminal` (Node 20 slim, installs deps, runs `server/terminal-server.js`).
+- Or extend the existing multi-service setup with a `docker-compose.yml` that includes:
+  - `frontend` service (current nginx image)
+  - `terminal` service (Node runtime for the WebSocket proxy)
+  - shared environment via `.env`
 
-**New files:** `src/pages/Login.tsx`, `src/pages/Dashboard.tsx`, `src/contexts/AuthContext.tsx`
-**Changes:** `src/App.tsx` (routes), `src/components/Navbar.tsx` (login/logout button)
+### 5. Add reverse proxy / TLS orchestration
+- Provide an nginx/Caddy config that:
+  - Serves the static Vite build at `/`
+  - Proxies `/terminal` to the terminal container with `proxy_http_version 1.1`, `Upgrade` and `Connection` headers
+  - Redirects HTTP → HTTPS and serves the domain certificate
+- Include a Certbot/Let's Encrypt step in the runbook.
 
----
+### 6. Verification before go-live
+- Run `npm run lint` and confirm 0 errors.
+- Run `npm run build` and confirm a clean `dist/`.
+- Run `deployment-checklist.sh` and confirm all checks pass.
+- Apply migrations to a staging/test Supabase project first.
+- Deploy the Docker image to the user's server, point the domain DNS A record to the server IP, and verify SSL + WebSocket connectivity.
+- Re-run the security scan after all changes.
 
-## Step 2: Database for Storing Security Events
+## What I need from you
+- The domain name you bought, so I can set the correct `VITE_APP_URL` and `VITE_TERMINAL_WS_URL` values.
+- Whether you want a single `docker-compose.yml` with nginx + certbot, or you prefer to use Caddy/Traefik, or your own existing reverse proxy.
 
-Creating database tables on Lovable Cloud for storage:
-
-- **security_incidents** — security events (type, severity, source IP, status, location_lat, location_lng, timestamps)
-- **firewall_logs** — traffic entries (src/dst IP, port, status, threat type)
-- **threat_alerts** — alerts from IDS/IPS
-- **blocked_ips** — blocked IP addresses (blacklist)
-
-RLS policies so that only the admin can read/write data.
-
----
-
-## Step 3: Real-Time Alert Notification System
-
-A system to provide alerts directly to the admin:
-
-- **In-app notifications** — bell icon on the navbar showing the number of new alerts
-- **Notification panel** — slide-out panel showing recent alerts with severity badges
-- **Sound alerts** — warning sound for critical threats
-- **Email notifications** — Edge Function that will send an email to the admin for critical incidents
-
-**New files:** `src/components/NotificationPanel.tsx`, `supabase/functions/send-alert/index.ts`
-
----
-
-## Step 4: Threat Intelligence & IP Reputation
-
-Adding the ability to investigate IP addresses:
-
-- **IP Blacklist Management** — admin can add/remove IPs from the blacklist
-- **Threat Intelligence Feed** — displaying known malicious IPs, CVEs, and attack patterns
-- **GeoIP Mapping** — map reads real lat/lng from the database for each new event
-- **Auto-blocking** — IPs with repeating attacks are blocked automatically
-
-**New files:** `src/components/ThreatIntelligence.tsx`, `src/components/GeoThreatMap.tsx`
-
----
-
-## Step 5: Vulnerability Scanner Simulation
-
-Adding a scanner to identify vulnerabilities in the system:
-
-- **Port Scanner** — shows open ports and their risks
-- **Service Detection** — identifying running services and their versions
-- **CVE Checker** — checking for known vulnerabilities for identified services
-- **Security Score** — overall system security score (A-F grading)
-
-**New file:** `src/components/VulnerabilityScanner.tsx`
-
----
-
-## Step 6: Automated Response Playbooks
-
-Adding automated playbooks for different types of attacks:
-
-- **DDoS Playbook** — rate limiting → IP block → CDN failover → admin alert
-- **Brute Force Playbook** — account lockout → IP ban → password policy enforcement
-- **Malware Playbook** — quarantine → scan → clean → restore
-- **Data Exfiltration Playbook** — network isolation → forensics → data integrity check
-
-Each playbook shows step-by-step progress and the status of each step (running/complete/failed).
-
-**Changes:** `src/components/IncidentResponse.tsx` (new Playbooks tab)
-
----
-
-## Step 7: Security Reports & Analytics
-
-Reports and analysis dashboard:
-
-- **Daily/Weekly/Monthly reports** — summary of security events
-- **Trend charts** — attack trends over time
-- **Top attacked services** — most targeted services
-- **Export capability** — download reports as PDF
-
-**New file:** `src/components/SecurityReports.tsx`
-
----
-
-## Implementation Schedule
-
-| Step | Priority | Reason |
-|-------|-----------|--------|
-| 1. Auth & Dashboard | High | Base of the entire system — data protection |
-| 2. Database | High | Storing real events |
-| 3. Notifications | High | Admin must receive alerts |
-| 4. Threat Intelligence | Medium | Increasing analysis capabilities |
-| 5. Vulnerability Scanner | Medium | Identifying vulnerabilities early |
-| 6. Playbooks | Medium | Automatically preventing attacks |
-| 7. Reports | Low | Long-term analysis |
-
----
-
-## Technical Details
-
-- Authentication will use Lovable Cloud auth (email/password)
-- Database migrations for all tables and RLS policies
-- Edge Function for email alerts (using existing LOVABLE_API_KEY)
-- Recharts for charts and analytics
-- Framer Motion for real-time animations
-- Simulation data will be stored in the database for analytics and reports
+## Outcome
+After this plan is implemented, the project will build cleanly, the database schema will be safe and correctly permissioned, and you will have a repeatable Docker-based deployment you can run on your own server with your own domain and SSL.
