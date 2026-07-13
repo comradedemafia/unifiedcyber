@@ -1,0 +1,8 @@
+{
+    email {$ACME_EMAIL:}
+}
+
+{$DOMAIN:localhost} {
+    reverse_proxy /terminal* terminal:4000
+    reverse_proxy frontend:80
+}

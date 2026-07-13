@@ -75,7 +75,7 @@ export async function callIntegration(id: string, path = '/', body?: any, opts?:
   });
   const text = await res.text();
   let data: any = text;
-  try { data = JSON.parse(text); } catch {}
+  try { data = JSON.parse(text); } catch { /* ignore non-JSON responses */ }
   if (!res.ok) {
     const err: any = new Error(`Request failed ${res.status}`);
     err.status = res.status;

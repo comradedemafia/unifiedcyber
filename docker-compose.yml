@@ -1,0 +1,45 @@
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_APP_URL: ${VITE_APP_URL}
+        VITE_TERMINAL_WS_URL: ${VITE_TERMINAL_WS_URL}
+    container_name: allsee-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  terminal:
+    build:
+      context: .
+      dockerfile: Dockerfile.terminal
+    container_name: allsee-terminal
+    restart: unless-stopped
+    expose:
+      - "4000"
+    env_file:
+      - .env
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: allsee-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env
+    depends_on:
+      - frontend
+      - terminal
+
+volumes:
+  caddy_data:
+  caddy_config:

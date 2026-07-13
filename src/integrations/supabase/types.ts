@@ -44,6 +44,60 @@ export type Database = {
         }
         Relationships: []
       }
+      encryption_events: {
+        Row: {
+          algorithm: string | null
+          created_at: string
+          event_type: string
+          id: string
+          message: string | null
+          status: string | null
+        }
+        Insert: {
+          algorithm?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          message?: string | null
+          status?: string | null
+        }
+        Update: {
+          algorithm?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      file_store: {
+        Row: {
+          content: string | null
+          owner: string | null
+          path: string
+          permissions: string | null
+          size: number | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          owner?: string | null
+          path: string
+          permissions?: string | null
+          size?: number | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          owner?: string | null
+          path?: string
+          permissions?: string | null
+          size?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       firewall_logs: {
         Row: {
           action: string
@@ -92,6 +146,33 @@ export type Database = {
         }
         Relationships: []
       }
+      installed_packages: {
+        Row: {
+          id: string
+          installed: boolean
+          installed_at: string
+          name: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          id?: string
+          installed?: boolean
+          installed_at?: string
+          name: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          id?: string
+          installed?: boolean
+          installed_at?: string
+          name?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -119,6 +200,30 @@ export type Database = {
           umri?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      script_runs: {
+        Row: {
+          args: string | null
+          created_at: string
+          id: string
+          output: string | null
+          script: string
+        }
+        Insert: {
+          args?: string | null
+          created_at?: string
+          id?: string
+          output?: string | null
+          script: string
+        }
+        Update: {
+          args?: string | null
+          created_at?: string
+          id?: string
+          output?: string | null
+          script?: string
         }
         Relationships: []
       }
@@ -161,6 +266,54 @@ export type Database = {
         }
         Relationships: []
       }
+      security_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          resource_id: string | null
+          resource_type: string | null
+          severity: Database["public"]["Enums"]["audit_level"]
+          source_system: string | null
+          status: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          severity?: Database["public"]["Enums"]["audit_level"]
+          source_system?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          severity?: Database["public"]["Enums"]["audit_level"]
+          source_system?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       terminal_audit_log: {
         Row: {
           command: string | null
@@ -200,6 +353,27 @@ export type Database = {
           target?: string | null
           user_email?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      terminal_files: {
+        Row: {
+          content: string | null
+          owner: string | null
+          path: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          owner?: string | null
+          path: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          owner?: string | null
+          path?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -265,6 +439,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_audit_logs: {
+        Args: {
+          p_event_type?: string
+          p_limit?: number
+          p_severity?: Database["public"]["Enums"]["audit_level"]
+        }
+        Returns: {
+          action: string
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          ip_address: string
+          resource_id: string
+          resource_type: string
+          severity: Database["public"]["Enums"]["audit_level"]
+          status: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -272,9 +466,35 @@ export type Database = {
         }
         Returns: boolean
       }
+      log_auth_event: {
+        Args: {
+          p_details: Json
+          p_event_type: string
+          p_ip_address: string
+          p_status: string
+          p_user_agent: string
+        }
+        Returns: string
+      }
+      log_security_event: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_event_type: string
+          p_ip_address?: string
+          p_resource_id?: string
+          p_resource_type?: string
+          p_severity?: Database["public"]["Enums"]["audit_level"]
+          p_source_system?: string
+          p_status?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      audit_level: "info" | "warning" | "critical"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -403,6 +623,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      audit_level: ["info", "warning", "critical"],
     },
   },
 } as const
