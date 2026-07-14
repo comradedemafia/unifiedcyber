@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity, recordFailedLoginAttempt } from "@/utils/security";
 import { useAuditLogging } from "@/hooks/useAuditLogging";
+import { lovable } from "@/integrations/lovable";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -288,6 +289,41 @@ const Login = () => {
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
+
+          <div className="mt-4">
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
+              <div className="relative flex justify-center text-[10px] font-mono uppercase tracking-widest">
+                <span className="bg-card px-2 text-muted-foreground">or continue with</span>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full font-mono text-sm gap-2 bg-black text-white hover:bg-black/90 hover:text-white border-black"
+              onClick={async () => {
+                try {
+                  const result = await lovable.auth.signInWithOAuth("apple", {
+                    redirect_uri: window.location.origin,
+                  });
+                  if (result.error) {
+                    toast({ title: "Apple Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
+                    return;
+                  }
+                  if (result.redirected) return;
+                  navigate("/siem");
+                } catch (err) {
+                  toast({ title: "Apple Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+                }
+              }}
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                <path d="M16.365 1.43c0 1.14-.42 2.22-1.24 3.03-.81.81-2.11 1.44-3.19 1.35-.13-1.12.42-2.28 1.2-3.06.85-.87 2.29-1.5 3.23-1.32zM20.5 17.13c-.55 1.27-.82 1.83-1.53 2.95-1 1.55-2.4 3.48-4.14 3.5-1.54.02-1.94-1.01-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.74-.03-3.07-1.77-4.07-3.32C.36 16.68-.31 11.53 1.9 8.72c1.57-2.01 4.05-3.19 6.39-3.19 2.39 0 3.89 1.31 5.86 1.31 1.91 0 3.08-1.31 5.84-1.31 2.09 0 4.3 1.14 5.87 3.11-5.16 2.83-4.32 10.2-1.36 8.49z"/>
+              </svg>
+              Sign in with Apple
+            </Button>
+          </div>
+
 
           {resendMessage && (
             <div className="mt-4 rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
