@@ -98,10 +98,10 @@ const SecurityTerminal = () => {
   const [rememberTarget, setRememberTarget] = useState(true);
   const [shellSocket, setShellSocket] = useState<WebSocket | null>(null);
   const [shellConnected, setShellConnected] = useState(false);
-  const [realShellEnabled, setRealShellEnabled] = useState(true);
+  const shellUrl = (import.meta.env.VITE_TERMINAL_WS_URL as string | undefined) || "";
+  const [realShellEnabled, setRealShellEnabled] = useState(Boolean(shellUrl));
   const [terminalConnectionError, setTerminalConnectionError] = useState<string | null>(null);
   const outputBufferRef = useRef("");
-  const shellUrl = import.meta.env.VITE_TERMINAL_WS_URL || "ws://localhost:4000/terminal";
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
