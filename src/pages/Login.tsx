@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { validateEmail, validatePassword, sanitizeInput, rateLimit, logSecurityEvent, checkForSuspiciousActivity, recordFailedLoginAttempt } from "@/utils/security";
 import { useAuditLogging } from "@/hooks/useAuditLogging";
+import { lovable } from "@/integrations/lovable";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
