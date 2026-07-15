@@ -299,6 +299,17 @@ const Login = () => {
               {loading ? "Processing..." : isSignUp ? "Create Account" : "Access Dashboard"}
               <ArrowRight className="w-4 h-4" />
             </Button>
+
+            {!isSignUp && (
+              <div className="text-center">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-mono text-primary hover:text-primary/80 hover:underline transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </form>
 
           <div className="mt-4">
