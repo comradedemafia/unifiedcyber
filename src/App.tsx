@@ -10,6 +10,8 @@ import AdminRoute from "./components/AdminRoute";
 
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const SIEM = lazy(() => import("./pages/SIEM"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -41,6 +43,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<ProtectedRoute><AdminRoute><Dashboard /></AdminRoute></ProtectedRoute>} />
               <Route path="/siem" element={<ProtectedRoute><SIEM /></ProtectedRoute>} />
               <Route path="/guides/open-source-siem-tools" element={<GuideOpenSourceSIEM />} />

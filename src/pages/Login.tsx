@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Shield, Terminal, Eye, EyeOff, ArrowRight, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,7 +102,18 @@ const Login = () => {
           setShowResend(/not confirmed|verify.*email|verification/i.test(error.message));
           recordFailedLoginAttempt(sanitizedEmail);
           await logAuthAction('login', 'failed', { email: sanitizedEmail, error: error.message });
-          toast({ title: "Login Error", description: error.message, variant: "destructive" });
+
+          const isInvalidCreds =
+            (error as any)?.code === "invalid_credentials" ||
+            /invalid login credentials/i.test(error.message || "");
+
+          toast({
+            title: isInvalidCreds ? "Incorrect email or password" : "Login Error",
+            description: isInvalidCreds
+              ? 'Please check your email and password. If you have forgotten your password, click "Forgot password?" below to reset it.'
+              : error.message,
+            variant: "destructive",
+          });
         } else {
           setSupabaseLog(null);
           setShowResend(false);
@@ -288,6 +299,17 @@ const Login = () => {
               {loading ? "Processing..." : isSignUp ? "Create Account" : "Access Dashboard"}
               <ArrowRight className="w-4 h-4" />
             </Button>
+
+            {!isSignUp && (
+              <div className="text-center">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-mono text-primary hover:text-primary/80 hover:underline transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </form>
 
           <div className="mt-4">
