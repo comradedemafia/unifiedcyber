@@ -297,31 +297,61 @@ const Login = () => {
                 <span className="bg-card px-2 text-muted-foreground">or continue with</span>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full font-mono text-sm gap-2 bg-black text-white hover:bg-black/90 hover:text-white border-black"
-              onClick={async () => {
-                try {
-                  const result = await lovable.auth.signInWithOAuth("apple", {
-                    redirect_uri: window.location.origin,
-                  });
-                  if (result.error) {
-                    toast({ title: "Apple Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
-                    return;
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full font-mono text-sm gap-2"
+                onClick={async () => {
+                  try {
+                    const result = await lovable.auth.signInWithOAuth("google", {
+                      redirect_uri: window.location.origin,
+                    });
+                    if (result.error) {
+                      toast({ title: "Google Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
+                      return;
+                    }
+                    if (result.redirected) return;
+                    navigate("/siem");
+                  } catch (err) {
+                    toast({ title: "Google Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
                   }
-                  if (result.redirected) return;
-                  navigate("/siem");
-                } catch (err) {
-                  toast({ title: "Apple Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-                }
-              }}
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
-                <path d="M16.365 1.43c0 1.14-.42 2.22-1.24 3.03-.81.81-2.11 1.44-3.19 1.35-.13-1.12.42-2.28 1.2-3.06.85-.87 2.29-1.5 3.23-1.32zM20.5 17.13c-.55 1.27-.82 1.83-1.53 2.95-1 1.55-2.4 3.48-4.14 3.5-1.54.02-1.94-1.01-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.74-.03-3.07-1.77-4.07-3.32C.36 16.68-.31 11.53 1.9 8.72c1.57-2.01 4.05-3.19 6.39-3.19 2.39 0 3.89 1.31 5.86 1.31 1.91 0 3.08-1.31 5.84-1.31 2.09 0 4.3 1.14 5.87 3.11-5.16 2.83-4.32 10.2-1.36 8.49z"/>
-              </svg>
-              Sign in with Apple
-            </Button>
+                }}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                  <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.44c-.28 1.48-1.12 2.73-2.38 3.58v2.97h3.85c2.25-2.08 3.58-5.15 3.58-8.79z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.94l-3.85-2.97c-1.07.72-2.44 1.16-4.08 1.16-3.14 0-5.8-2.12-6.75-4.97H1.27v3.11C3.25 21.3 7.31 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.25 14.28c-.24-.72-.38-1.49-.38-2.28s.14-1.56.38-2.28V6.61H1.27C.46 8.23 0 10.06 0 12s.46 3.77 1.27 5.39l3.98-3.11z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.61l3.98 3.11C6.2 6.87 8.86 4.75 12 4.75z"/>
+                </svg>
+                Sign in with Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full font-mono text-sm gap-2 bg-black text-white hover:bg-black/90 hover:text-white border-black"
+                onClick={async () => {
+                  try {
+                    const result = await lovable.auth.signInWithOAuth("apple", {
+                      redirect_uri: window.location.origin,
+                    });
+                    if (result.error) {
+                      toast({ title: "Apple Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
+                      return;
+                    }
+                    if (result.redirected) return;
+                    navigate("/siem");
+                  } catch (err) {
+                    toast({ title: "Apple Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+                  }
+                }}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                  <path d="M16.365 1.43c0 1.14-.42 2.22-1.24 3.03-.81.81-2.11 1.44-3.19 1.35-.13-1.12.42-2.28 1.2-3.06.85-.87 2.29-1.5 3.23-1.32zM20.5 17.13c-.55 1.27-.82 1.83-1.53 2.95-1 1.55-2.4 3.48-4.14 3.5-1.54.02-1.94-1.01-4.03-.99-2.09.01-2.53 1.01-4.07.99-1.74-.03-3.07-1.77-4.07-3.32C.36 16.68-.31 11.53 1.9 8.72c1.57-2.01 4.05-3.19 6.39-3.19 2.39 0 3.89 1.31 5.86 1.31 1.91 0 3.08-1.31 5.84-1.31 2.09 0 4.3 1.14 5.87 3.11-5.16 2.83-4.32 10.2-1.36 8.49z"/>
+                </svg>
+                Sign in with Apple
+              </Button>
+            </div>
           </div>
 
 
