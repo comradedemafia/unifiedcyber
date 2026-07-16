@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "sdk_version": "0.22.2",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://usfotvrvfwugruyfxubf.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "rucu-cybersecurity-mcp",
+      "version": "0.1.0",
+      "title": "RUCU Cybersecurity MCP"
+    },
+    "tools": [
+      {
+        "name": "list_security_incidents",
+        "title": "List security incidents",
+        "description": "List recent security incidents from the RUCU platform, ordered by most recent. Optionally filter by severity or status.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "description": "Max rows to return (1-100)."
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ],
+              "description": "Filter by severity level."
+            },
+            "status": {
+              "type": "string",
+              "description": "Filter by status, e.g. open, contained, resolved."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_threat_alerts",
+        "title": "List threat alerts",
+        "description": "List recent threat alerts detected by the SIEM, ordered by most recent.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "description": "Max rows to return (1-100)."
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_firewall_logs",
+        "title": "List firewall logs",
+        "description": "List recent firewall log entries. Optionally filter by source IP or action.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "description": "Max rows (1-200)."
+            },
+            "source_ip": {
+              "type": "string",
+              "description": "Filter by source IP address."
+            },
+            "action": {
+              "type": "string",
+              "description": "Filter by action, e.g. block, allow."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_blocked_ips",
+        "title": "List blocked IPs",
+        "description": "List IP addresses currently blocked by the RUCU firewall.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "block_ip",
+        "title": "Block an IP address",
+        "description": "Add an IP address to the firewall block list. Default expiry is 24 hours; pass is_permanent=true for an indefinite block.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ip_address": {
+              "type": "string",
+              "minLength": 3,
+              "description": "IPv4 or IPv6 address to block."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Human-readable reason for the block."
+            },
+            "is_permanent": {
+              "type": "boolean",
+              "default": false,
+              "description": "If true, the block does not expire."
+            },
+            "hours": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 720,
+              "default": 24,
+              "description": "Hours to block for when not permanent."
+            }
+          },
+          "required": [
+            "ip_address"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

@@ -29,6 +29,15 @@ const Login = () => {
   const { toast } = useToast();
   const { logAuthAction } = useAuditLogging({ showNotifications: true });
 
+  const nextParam = (() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("next");
+    // Only accept same-origin relative paths.
+    if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+    return null;
+  })();
+  const postAuthTarget = nextParam ?? "/siem";
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("mode") === "signup") {
@@ -118,7 +127,7 @@ const Login = () => {
           setSupabaseLog(null);
           setShowResend(false);
           await logAuthAction('login', 'success', { email: sanitizedEmail });
-          navigate("/siem");
+          navigate(postAuthTarget);
         }
       }
     } catch (error) {
@@ -327,14 +336,14 @@ const Login = () => {
                 onClick={async () => {
                   try {
                     const result = await lovable.auth.signInWithOAuth("google", {
-                      redirect_uri: window.location.origin,
+                      redirect_uri: `${window.location.origin}${nextParam ?? ""}`,
                     });
                     if (result.error) {
                       toast({ title: "Google Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
                       return;
                     }
                     if (result.redirected) return;
-                    navigate("/siem");
+                    navigate(postAuthTarget);
                   } catch (err) {
                     toast({ title: "Google Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
                   }
@@ -355,14 +364,14 @@ const Login = () => {
                 onClick={async () => {
                   try {
                     const result = await lovable.auth.signInWithOAuth("apple", {
-                      redirect_uri: window.location.origin,
+                      redirect_uri: `${window.location.origin}${nextParam ?? ""}`,
                     });
                     if (result.error) {
                       toast({ title: "Apple Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
                       return;
                     }
                     if (result.redirected) return;
-                    navigate("/siem");
+                    navigate(postAuthTarget);
                   } catch (err) {
                     toast({ title: "Apple Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
                   }
