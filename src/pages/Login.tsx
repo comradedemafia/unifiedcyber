@@ -29,6 +29,15 @@ const Login = () => {
   const { toast } = useToast();
   const { logAuthAction } = useAuditLogging({ showNotifications: true });
 
+  const nextParam = (() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("next");
+    // Only accept same-origin relative paths.
+    if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+    return null;
+  })();
+  const postAuthTarget = nextParam ?? "/siem";
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("mode") === "signup") {
@@ -118,7 +127,7 @@ const Login = () => {
           setSupabaseLog(null);
           setShowResend(false);
           await logAuthAction('login', 'success', { email: sanitizedEmail });
-          navigate("/siem");
+          navigate(postAuthTarget);
         }
       }
     } catch (error) {
