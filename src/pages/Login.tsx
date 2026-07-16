@@ -336,14 +336,14 @@ const Login = () => {
                 onClick={async () => {
                   try {
                     const result = await lovable.auth.signInWithOAuth("google", {
-                      redirect_uri: window.location.origin,
+                      redirect_uri: `${window.location.origin}${nextParam ?? ""}`,
                     });
                     if (result.error) {
                       toast({ title: "Google Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
                       return;
                     }
                     if (result.redirected) return;
-                    navigate("/siem");
+                    navigate(postAuthTarget);
                   } catch (err) {
                     toast({ title: "Google Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
                   }
@@ -364,14 +364,14 @@ const Login = () => {
                 onClick={async () => {
                   try {
                     const result = await lovable.auth.signInWithOAuth("apple", {
-                      redirect_uri: window.location.origin,
+                      redirect_uri: `${window.location.origin}${nextParam ?? ""}`,
                     });
                     if (result.error) {
                       toast({ title: "Apple Sign-In Error", description: result.error.message || String(result.error), variant: "destructive" });
                       return;
                     }
                     if (result.redirected) return;
-                    navigate("/siem");
+                    navigate(postAuthTarget);
                   } catch (err) {
                     toast({ title: "Apple Sign-In Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
                   }
