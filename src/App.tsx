@@ -16,6 +16,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const SIEM = lazy(() => import("./pages/SIEM"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const GuideOpenSourceSIEM = lazy(() => import("./pages/GuideOpenSourceSIEM"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/dashboard" element={<ProtectedRoute><AdminRoute><Dashboard /></AdminRoute></ProtectedRoute>} />
               <Route path="/siem" element={<ProtectedRoute><SIEM /></ProtectedRoute>} />
               <Route path="/guides/open-source-siem-tools" element={<GuideOpenSourceSIEM />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
